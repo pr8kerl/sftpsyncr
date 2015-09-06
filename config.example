@@ -1,0 +1,22 @@
+; config file
+[defaults]
+port = 22
+matchregexp = .*
+logfile = /tmp/sftpsyncr.log
+lockdir = /tmp/sftpsyncr.lock
+debug = true
+
+# config file
+[profile "default"]
+server = localhost
+username = luser
+password = letmein
+;key = 
+;port = 22
+;matchregexp = *
+localdir = /tmp/local
+remotedir = remote
+;logfile = /tmp/sftpsyncr.log
+;lockdir = /tmp/sftpsyncr.lock
+;debug = false
+

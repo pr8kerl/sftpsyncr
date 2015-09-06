@@ -7,15 +7,8 @@ import (
 )
 
 var (
-	config  Config
 	profile string
-	debug   bool = false
 )
-
-func init() {
-	log.SetFlags(log.LstdFlags)
-	// log.SetPrefix(basename + ": ")
-}
 
 func main() {
 
