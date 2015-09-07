@@ -58,7 +58,9 @@ func (c *PushCommand) Run(args []string) int {
 		log.Printf("error : required configurable lockdir is not set.")
 		return 99
 	}
-	log.Printf("mklockdir: %s\n", config.Profile[profile].LockDir)
+	if debug {
+		log.Printf("DEBUG mklockdir: %s\n", config.Profile[profile].LockDir)
+	}
 	err = os.Mkdir(config.Profile[profile].LockDir, 022)
 	if err != nil {
 		log.Printf("error : %s\n", err)
@@ -70,10 +72,14 @@ func (c *PushCommand) Run(args []string) int {
 	if _, err := os.Stat(config.Profile[profile].LocalDir); err != nil {
 		if os.IsNotExist(err) {
 			// file does not exist
-			log.Printf("error : dest directory does not exist, %s", config.Profile[profile].LocalDir)
+			log.Printf("error : local directory does not exist : %s", config.Profile[profile].LocalDir)
 			return 98
 		}
 	}
+
+	// start doing some real work
+	log.Printf("start %s\n", profile)
+	defer log.Printf("end %s\n", profile)
 
 	// walk local dir and build file list
 	c.LocalFiles = make(map[string]os.FileInfo)
@@ -125,21 +131,28 @@ func (c *PushCommand) Run(args []string) int {
 		}
 		defer client.Close()
 
+		err = mkDir(client, config.Profile[profile].RemoteDir)
+		if err != nil {
+			log.Printf("error creating remote directory on remote server: %s : %v", config.Profile[profile].RemoteDir, err)
+			return 96
+		}
 		err = walkRemote(client, config.Profile[profile].RemoteDir, &c.RemoteFiles)
 		if err != nil {
 			log.Printf("unable to walk remote server: %v", err)
-			return 96
+			return 95
 		}
 
 		// foreach filelist send
 		for path := range c.LocalFiles {
 
 			if debug {
-				log.Printf("processing local path : %s\n", path)
+				log.Printf("DEBUG processing local path : %s\n", path)
 			}
 
 			if _, ok := c.RemoteFiles[path]; ok {
-				log.Printf("path %s already exists on remote\n", path)
+				if debug {
+					log.Printf("DEBUG path %s already exists on remote\n", path)
+				}
 				continue
 			} else {
 				rfile := filepath.Join(config.Profile[profile].RemoteDir, path)
@@ -147,12 +160,12 @@ func (c *PushCommand) Run(args []string) int {
 				lsize := c.LocalFiles[path].Size()
 				if c.LocalFiles[path].IsDir() {
 					log.Printf("push directory %s\n", rfile)
-					err := mkdir(client, rfile)
+					err := mkDir(client, rfile)
 					if err != nil {
 						log.Printf("error sending directory : %s %s\n", path, err)
 					}
 				} else {
-					log.Printf("push %s size %d\n", rfile, lsize)
+					log.Printf("push file %s size %d\n", rfile, lsize)
 					err := send(client, lfile, lsize, rfile)
 					if err != nil {
 						log.Printf("error sending file : %s %s\n", path, err)
@@ -196,7 +209,9 @@ func rmLock(ldir string) error {
 	if err != nil {
 		log.Fatalf("unable to remove lock directory, %s\n", err)
 	}
-	log.Printf("rmlockdir: %s\n", ldir)
+	if debug {
+		log.Printf("DEBUG rmlockdir: %s\n", ldir)
+	}
 	return err
 }
 

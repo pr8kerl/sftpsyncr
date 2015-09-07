@@ -72,8 +72,11 @@ func InitialiseConfig(file string) error {
 		return err
 	}
 	if config.Profile[profile].Password == "" && config.Profile[profile].Key == "" {
-		err = errors.New("one profile configurable of password or username must be set.")
-		return err
+		agent := os.Getenv("SSH_AUTH_SOCK")
+		if agent == "" {
+			err = errors.New("set an auth method using an ssh-agent and SSH_AUTH_SOCK env, or by setting a key or a password in the config file.")
+			return err
+		}
 	}
 	if config.Profile[profile].Port == 0 {
 		config.Profile[profile].Port = config.Defaults.Port
@@ -116,12 +119,16 @@ func InitialiseConfig(file string) error {
 
 func setLog(file string) error {
 
-	lf, err := os.Create(file)
+	lf, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		return err
 	}
 	log.SetOutput(lf)
-	log.SetFlags(log.LstdFlags)
+	if debug {
+		log.SetFlags(log.LstdFlags | log.Lshortfile)
+	} else {
+		log.SetFlags(log.LstdFlags)
+	}
 	log.SetPrefix(profile + " : ")
 
 	return nil

@@ -40,7 +40,9 @@ func walkRemote(client *sftp.Client, rdir string, rfmap *map[string]os.FileInfo)
 			(*rfmap)[rel] = rstat
 		}
 
-		log.Printf("remote path: %s,\tsize: %d", walker.Path(), rstat.Size())
+		if debug {
+			log.Printf("DEBUG remote path: %s,\tsize: %d", walker.Path(), rstat.Size())
+		}
 
 		//              log.Println(walker.Path())
 		//    Name() string       // base name of the file
@@ -54,7 +56,8 @@ func walkRemote(client *sftp.Client, rdir string, rfmap *map[string]os.FileInfo)
 	return nil
 
 }
-func mkdir(client *sftp.Client, rdir string) error {
+
+func mkDir(client *sftp.Client, rdir string) error {
 	err := client.Mkdir(rdir)
 	if err != nil {
 		return err
