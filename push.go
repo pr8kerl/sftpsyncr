@@ -131,15 +131,19 @@ func (c *PushCommand) Run(args []string) int {
 		}
 		defer client.Close()
 
-		err = mkDir(client, config.Profile[profile].RemoteDir)
-		if err != nil {
-			log.Printf("error creating remote directory on remote server: %s : %v", config.Profile[profile].RemoteDir, err)
-			return 96
-		}
 		err = walkRemote(client, config.Profile[profile].RemoteDir, &c.RemoteFiles)
 		if err != nil {
 			log.Printf("unable to walk remote server: %v", err)
 			return 95
+		}
+
+		// ensure the remote dest directory exists before doing anything
+		if _, ok := c.RemoteFiles["."]; ok {
+			if debug {
+				log.Printf("DEBUG remote directory %s already exists on remote\n", config.Profile[profile].RemoteDir)
+			}
+		} else {
+			err = mkDir(client, config.Profile[profile].RemoteDir)
 		}
 
 		// foreach filelist send
@@ -160,10 +164,7 @@ func (c *PushCommand) Run(args []string) int {
 				lsize := c.LocalFiles[path].Size()
 				if c.LocalFiles[path].IsDir() {
 					log.Printf("push directory %s\n", rfile)
-					err := mkDir(client, rfile)
-					if err != nil {
-						log.Printf("error sending directory : %s %s\n", path, err)
-					}
+					mkDir(client, rfile)
 				} else {
 					log.Printf("push file %s size %d\n", rfile, lsize)
 					err := send(client, lfile, lsize, rfile)
