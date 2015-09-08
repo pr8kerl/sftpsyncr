@@ -8,13 +8,13 @@ GO=$(GOROOT)/bin/go
 all: sftpsyncr
 
 update: $(DEPS)
-	GOPATH=$(GOPATH) go get -u $^
+	GO15VENDOREXPERIMENT=1 GOPATH=$(GOPATH) go get -u $^
 
 sftpsyncr: main.go config.go push.go send.go
     # always format code
-		GOPATH=$(GOPATH) $(GO) fmt $^
+		GO15VENDOREXPERIMENT=1 GOPATH=$(GOPATH) $(GO) fmt $^
     # binary
-		GOPATH=$(GOPATH) $(GO) build -o $@ -v $^
+		GO15VENDOREXPERIMENT=1 GOPATH=$(GOPATH) $(GO) build -o $@ -v $^
 		touch $@
 
 windows:

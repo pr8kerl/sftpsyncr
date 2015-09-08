@@ -98,9 +98,8 @@ func InitialiseConfig(file string) error {
 	if config.Profile[profile].LockDir == "" {
 		config.Profile[profile].LockDir = config.Defaults.LockDir
 	}
-	if !config.Profile[profile].Debug && config.Defaults.Debug {
-		config.Profile[profile].Debug = config.Defaults.Debug
-		debug = config.Defaults.Debug
+	if config.Profile[profile].Debug {
+		debug = config.Profile[profile].Debug
 	}
 
 	fileregexp, err = regexp.Compile(config.Profile[profile].MatchRegExp)

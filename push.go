@@ -33,11 +33,14 @@ func pushCmdFactory() (cli.Command, error) {
 			Ui:          ui,
 			OutputColor: cli.UiColorBlue,
 		},
+		LocalFiles:  make(map[string]os.FileInfo),
+		RemoteFiles: make(map[string]os.FileInfo),
 	}, nil
 }
 
 func (c *PushCommand) Run(args []string) int {
 
+	// flags
 	var cfgfile string
 	cmdFlags := flag.NewFlagSet("instances", flag.ContinueOnError)
 	cmdFlags.StringVar(&profile, "profile", "default", "sftp session profile to use")
@@ -47,6 +50,7 @@ func (c *PushCommand) Run(args []string) int {
 	}
 	cmdFlags.Usage = func() { c.Ui.Output(c.Help()) }
 
+	// config
 	err := InitialiseConfig(cfgfile)
 	if err != nil {
 		log.Fatalf("error : failed to initialise config : %s", err)
@@ -77,13 +81,11 @@ func (c *PushCommand) Run(args []string) int {
 		}
 	}
 
-	// start doing some real work
+	// ready to start
 	log.Printf("start %s\n", profile)
 	defer log.Printf("end %s\n", profile)
 
-	// walk local dir and build file list
-	c.LocalFiles = make(map[string]os.FileInfo)
-	c.RemoteFiles = make(map[string]os.FileInfo)
+	// build local file list
 	ldir := config.Profile[profile].LocalDir
 	if ldir == "" {
 		log.Fatalln("required configurable localdir is not set for profile %s.", profile)
@@ -93,13 +95,13 @@ func (c *PushCommand) Run(args []string) int {
 	// if file list connect
 	if len(c.LocalFiles) > 0 {
 
-		// connect and test remote path
-		// defer connect handle close
-
+		// set ssh auth methods
+		// allow ssh-agent
 		var auths []ssh.AuthMethod
 		if aconn, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK")); err == nil {
 			auths = append(auths, ssh.PublicKeysCallback(agent.NewClient(aconn).Signers))
 		}
+		// if key is set, add to allowed auths
 		if config.Profile[profile].Key != "" {
 			key, err := getKeyFile()
 			if err != nil {
@@ -108,10 +110,12 @@ func (c *PushCommand) Run(args []string) int {
 				auths = append(auths, ssh.PublicKeys(key))
 			}
 		}
+		// add a password if set
 		if config.Profile[profile].Password != "" {
 			auths = append(auths, ssh.Password(config.Profile[profile].Password))
 		}
 
+		// configure ssh and dial
 		sshconfig := ssh.ClientConfig{
 			User: config.Profile[profile].Username,
 			Auth: auths,
@@ -124,6 +128,7 @@ func (c *PushCommand) Run(args []string) int {
 		}
 		defer conn.Close()
 
+		// start sftp
 		client, err := sftp.NewClient(conn)
 		if err != nil {
 			log.Printf("unable to start sftp subsytem: %v", err)
@@ -131,13 +136,14 @@ func (c *PushCommand) Run(args []string) int {
 		}
 		defer client.Close()
 
+		// build remote file list
 		err = walkRemote(client, config.Profile[profile].RemoteDir, &c.RemoteFiles)
 		if err != nil {
 			log.Printf("unable to walk remote server: %v", err)
 			return 95
 		}
 
-		// ensure the remote dest directory exists before doing anything
+		// check remote dest directory
 		if _, ok := c.RemoteFiles["."]; ok {
 			if debug {
 				log.Printf("DEBUG remote directory %s already exists on remote\n", config.Profile[profile].RemoteDir)
@@ -146,20 +152,24 @@ func (c *PushCommand) Run(args []string) int {
 			err = mkDir(client, config.Profile[profile].RemoteDir)
 		}
 
-		// foreach filelist send
+		// for each local file, if it isn't on remote, send
 		for path := range c.LocalFiles {
 
 			if debug {
 				log.Printf("DEBUG processing local path : %s\n", path)
 			}
 
+			// ignore if it is on remote
 			if _, ok := c.RemoteFiles[path]; ok {
 				if debug {
 					log.Printf("DEBUG path %s already exists on remote\n", path)
 				}
 				continue
 			} else {
+				// if it isn't on remote, send it
+				// prepend the remote dir to the remote file path
 				rfile := filepath.Join(config.Profile[profile].RemoteDir, path)
+				// prepend the local dir to the local file path
 				lfile := filepath.Join(config.Profile[profile].LocalDir, path)
 				lsize := c.LocalFiles[path].Size()
 				if c.LocalFiles[path].IsDir() {

@@ -1,5 +1,4 @@
-// streaming-write-benchmark benchmarks the peformance of writing
-// from /dev/zero on the client to /dev/null on the server via io.Copy.
+
 package main
 
 import (
@@ -9,14 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-)
-
-var (
-	USER string
-	HOST string
-	PORT int = 22
-	PASS string
-	SIZE int = 32768
 )
 
 func remoteMkdir(client *sftp.Client, rdir string) error {
