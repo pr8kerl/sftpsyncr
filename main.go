@@ -17,7 +17,7 @@ func main() {
 
 	c.Commands = map[string]cli.CommandFactory{
 		"push": pushCmdFactory,
-		//                "pull": pullCmdFactory(),
+		"pull": pullCmdFactory,
 	}
 
 	exitStatus, err := c.Run()

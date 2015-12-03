@@ -10,7 +10,7 @@ all: sftpsyncr
 update: $(DEPS)
 	GOPATH=$(GOPATH) go get -u $^
 
-sftpsyncr: main.go config.go push.go send.go
+sftpsyncr: main.go config.go session.go push.go pull.go
     # always format code
 		GOPATH=$(GOPATH) $(GO) fmt $^
     # binary
