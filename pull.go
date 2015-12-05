@@ -73,7 +73,8 @@ func (c *PullCommand) Run(args []string) int {
 			var lsize, rsize int64 = 0, 0
 			_, lexists := sess.LocalFiles[path]
 
-			rsize = sess.RemoteFiles[path].Size()
+			rfile := sess.RemoteFiles[path]
+			rsize = rfile.Size()
 
 			if debug {
 				log.Printf("DEBUG processing remote path : %s, %d\n", path, rsize)
@@ -96,28 +97,31 @@ func (c *PullCommand) Run(args []string) int {
 
 				// if it isn't on local and it's a different size, pull it
 				// prepend the remote dir to the remote file path
-				rfile := filepath.Join(config.Profile[profile].RemoteDir, path)
+				rfilepath := filepath.Join(config.Profile[profile].RemoteDir, path)
 				// prepend the local dir to the local file path
-				lfile := filepath.Join(config.Profile[profile].LocalDir, path)
-				if sess.RemoteFiles[path].IsDir() {
-					log.Printf("pull directory %s\n", rfile)
+				lfilepath := filepath.Join(config.Profile[profile].LocalDir, path)
+				if rfile.IsDir() {
+					log.Printf("pull directory %s\n", rfilepath)
 					//sess.MkDirRemote(rfile)
 					// test for local directory
-					//					if _, err := os.Stat(lfile); err != nil {
-					//						if os.IsNotExist(err) {
-					// dir does not exist
-					err = os.Mkdir(lfile, 022)
-					if err != nil {
-						log.Printf("error creating local directory path : %s, %s\n", lfile, err)
+					if _, err := os.Stat(lfilepath); err != nil {
+						if os.IsNotExist(err) {
+							// dir does not exist
+							err = os.Mkdir(lfilepath, rfile.Mode())
+							if err != nil {
+								log.Printf("error creating local directory path : %s, %s\n", lfilepath, err)
+							}
+							if debug {
+								log.Printf("DEBUG created dir %s\n", lfilepath)
+							}
+						}
 					}
-					//						}
-					//					}
 				} else {
-					log.Printf("pull file %s size %d\n", rfile, lsize)
+					log.Printf("pull file %s size %d\n", rfilepath, rsize)
 
-					//err := sess.Pull(lfile, lsize, rfile)
+					err := sess.Pull(rfilepath, rsize, lfilepath)
 					if err != nil {
-						log.Printf("error sending file : %s %s\n", path, err)
+						log.Printf("error pulling file : %s %s\n", path, err)
 						// bail??
 					}
 				}

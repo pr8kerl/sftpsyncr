@@ -295,7 +295,6 @@ func (s *SftpSession) Push(lfile string, size int64, rfile string) error {
 	}
 	defer f.Close()
 
-	log.Printf("writing %v bytes", size)
 	t1 := time.Now()
 	n, err := io.Copy(w, io.LimitReader(f, size))
 	if err != nil {
@@ -305,6 +304,40 @@ func (s *SftpSession) Push(lfile string, size int64, rfile string) error {
 		log.Fatalf("copy: expected %v bytes, got %d", size, n)
 	}
 	log.Printf("wrote %v bytes in %s", size, time.Since(t1))
+
+	return nil
+}
+
+func (s *SftpSession) Pull(rfile string, size int64, lfile string) error {
+
+	if s.client == nil {
+		err := s.Connect()
+		if err != nil {
+			return err
+		}
+	}
+	// open file on remote host
+	r, err := s.client.Open(rfile)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	w, err := os.Create(lfile)
+	if err != nil {
+		return err
+	}
+	defer w.Close()
+
+	t1 := time.Now()
+	n, err := io.Copy(w, io.LimitReader(r, size))
+	if err != nil {
+		return err
+	}
+	if n != size {
+		log.Fatalf("pull copy: expected %v bytes, got %d", size, n)
+	}
+	log.Printf("pull wrote %v bytes in %s", size, time.Since(t1))
 
 	return nil
 }
