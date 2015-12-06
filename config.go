@@ -15,27 +15,29 @@ var (
 
 type Config struct {
 	Defaults struct {
-		Port        uint32
-		MatchRegExp string
-		LogFile     string
-		LockDir     string
-		Debug       bool
+		Port            uint32
+		MatchRegExp     string
+		LogFile         string
+		LockDir         string
+		InsecureCiphers bool
+		Debug           bool
 	}
 	Profile map[string]*Section
 }
 
 type Section struct {
-	Server      string
-	Username    string
-	Password    string
-	Key         string
-	Port        uint32
-	MatchRegExp string
-	LocalDir    string
-	RemoteDir   string
-	LogFile     string
-	LockDir     string
-	Debug       bool
+	Server          string
+	Username        string
+	Password        string
+	Key             string
+	Port            uint32
+	MatchRegExp     string
+	LocalDir        string
+	RemoteDir       string
+	LogFile         string
+	LockDir         string
+	InsecureCiphers bool
+	Debug           bool
 }
 
 func InitialiseConfig(file string) error {

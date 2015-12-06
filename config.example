@@ -2,8 +2,9 @@
 [defaults]
 port = 22
 matchregexp = .*
-logfile = /tmp/sftpsyncr.log
+;logfile = /tmp/sftpsyncr.log
 lockdir = /tmp/sftpsyncr.lock
+;insecureciphers = false
 debug = true
 
 # config file
@@ -18,5 +19,6 @@ localdir = /tmp/local
 remotedir = remote
 ;logfile = /tmp/sftpsyncr.log
 ;lockdir = /tmp/sftpsyncr.lock
+;insecureciphers = false
 ;debug = false
 

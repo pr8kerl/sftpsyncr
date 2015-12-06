@@ -3,9 +3,10 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/pkg/sftp"
-	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/agent"
+	"github.com/ScriptRock/sftp"
+	//"golang.org/x/crypto/ssh"
+	"github.com/ScriptRock/crypto/ssh"
+	"github.com/ScriptRock/crypto/ssh/agent"
 	"io"
 	"io/ioutil"
 	"log"
@@ -23,6 +24,7 @@ type SftpSession struct {
 	client      *sftp.Client
 	config      *Config
 	section     string
+	insecure    bool
 	sshConfig   ssh.ClientConfig
 	fileregexp  *regexp.Regexp
 }
@@ -33,6 +35,7 @@ func NewSftpSession(cfg *Config, pname string) (*SftpSession, error) {
 		RemoteFiles: make(map[string]os.FileInfo),
 		config:      cfg,
 		section:     pname,
+		insecure:    false,
 		connection:  nil,
 		client:      nil,
 	}
@@ -51,9 +54,9 @@ func NewSftpSession(cfg *Config, pname string) (*SftpSession, error) {
 func (s *SftpSession) Connect() error {
 
 	addr := fmt.Sprintf("%s:%d", s.config.Profile[profile].Server, s.config.Profile[profile].Port)
+	log.Printf("connect to %s", addr)
 	connection, err := ssh.Dial("tcp", addr, &s.sshConfig)
 	if err != nil {
-		log.Printf("unable to connect to [%s]: %v", addr, err)
 		return err
 	}
 
@@ -120,6 +123,12 @@ func (s *SftpSession) initSftpSession() error {
 	if s.config.Profile[profile].Debug {
 		debug = s.config.Profile[profile].Debug
 	}
+	if config.Defaults.InsecureCiphers {
+		s.insecure = config.Defaults.InsecureCiphers
+	}
+	if s.config.Profile[profile].InsecureCiphers {
+		s.insecure = s.config.Profile[profile].InsecureCiphers
+	}
 
 	var err error
 	s.fileregexp, err = regexp.Compile(s.config.Profile[profile].MatchRegExp)
@@ -154,9 +163,25 @@ func (s *SftpSession) initSftpSession() error {
 	}
 
 	// configure ssh
+	/*
+		defaultPlusDiscouragedCiphers := []string{
+			"aes128-ctr", "aes192-ctr", "aes256-ctr",
+			"aes128-gcm@openssh.com",
+			"arcfour256", "arcfour128",
+			"aes128-cbc", "aes192-cbc", "aes256-cbc", "3des-cbc",
+		}
+	*/
+
+	sshCommonConfig := ssh.Config{}
+	if s.insecure {
+		sshCommonConfig = ssh.Config{Ciphers: ssh.AllSupportedCiphers()}
+	}
+	sshCommonConfig.SetDefaults()
+
 	s.sshConfig = ssh.ClientConfig{
-		User: s.config.Profile[profile].Username,
-		Auth: auths,
+		User:   s.config.Profile[profile].Username,
+		Auth:   auths,
+		Config: sshCommonConfig,
 	}
 
 	// grab lock directory
