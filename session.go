@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/ScriptRock/sftp"
 	//"golang.org/x/crypto/ssh"
+	"bytes"
 	"github.com/ScriptRock/crypto/ssh"
 	"github.com/ScriptRock/crypto/ssh/agent"
 	"io"
@@ -54,14 +55,53 @@ func NewSftpSession(cfg *Config, pname string) (*SftpSession, error) {
 func (s *SftpSession) Connect() error {
 
 	addr := fmt.Sprintf("%s:%d", s.config.Profile[profile].Server, s.config.Profile[profile].Port)
-	log.Printf("connect to %s", addr)
-	connection, err := ssh.Dial("tcp", addr, &s.sshConfig)
-	if err != nil {
-		return err
+	var err error
+
+	if s.config.Profile[profile].ProxyServer != "" {
+
+		paddr := fmt.Sprintf("%s:%d", s.config.Profile[profile].ProxyServer, s.config.Profile[profile].ProxyPort)
+		log.Printf("connect to proxy %s", paddr)
+		conn, err := net.Dial("tcp", paddr)
+		if err != nil {
+			return err
+		}
+
+		// http connect
+		connstr := []byte("CONNECT " + addr + " HTTP/1.1\r\nHost: " + addr + "\r\n\r\n")
+		if _, err := conn.Write(connstr); err != nil {
+			return errors.New("failed to write connect to http proxy at " + paddr + ": " + err.Error())
+		}
+		buf := make([]byte, 100)
+		respok := []byte(" 200 ")
+		if _, err := io.ReadFull(conn, buf); err != nil {
+			return errors.New("failed to read response from http proxy at " + paddr + ": " + err.Error())
+		}
+		if !bytes.Contains(buf, respok) {
+			return errors.New("error response from http proxy at " + paddr + ": " + string(buf))
+		}
+
+		// CONNECT www.google.com.au:443 HTTP/1.1
+		// Host: www.google.com.au:443
+		//
+		// HTTP/1.0 200 Connection Established
+		// Proxy-agent: Apache
+
+		sshconn, inch, inrq, err := ssh.NewClientConn(conn, paddr, &s.sshConfig)
+		if err != nil {
+			return err
+		}
+		s.connection = ssh.NewClient(sshconn, inch, inrq)
+
+	} else {
+		log.Printf("connect to %s", addr)
+		s.connection, err = ssh.Dial("tcp", addr, &s.sshConfig)
+		if err != nil {
+			return err
+		}
 	}
 
 	// start sftp
-	s.client, err = sftp.NewClient(connection)
+	s.client, err = sftp.NewClient(s.connection)
 	if err != nil {
 		return fmt.Errorf("unable to start sftp subsytem: %v", err)
 	}
@@ -101,10 +141,14 @@ func (s *SftpSession) initSftpSession() error {
 		}
 	}
 	if s.config.Profile[profile].Port == 0 {
-		s.config.Profile[profile].Port = config.Defaults.Port
+		s.config.Profile[profile].Port = s.config.Defaults.Port
 	}
+	if s.config.Profile[profile].Port < 1 || s.config.Profile[profile].Port > 0xffff {
+		return fmt.Errorf("profile port number out of range: %d", s.config.Profile[profile].Port)
+	}
+
 	if s.config.Profile[profile].MatchRegExp == "" {
-		s.config.Profile[profile].MatchRegExp = config.Defaults.MatchRegExp
+		s.config.Profile[profile].MatchRegExp = s.config.Defaults.MatchRegExp
 	}
 	if s.config.Profile[profile].LocalDir == "" {
 		return errors.New("required profile configurable localdir not set")
@@ -113,18 +157,35 @@ func (s *SftpSession) initSftpSession() error {
 		return errors.New("required profile configurable remotedir not set")
 	}
 	if s.config.Profile[profile].LogFile == "" {
-		if config.Defaults.LogFile != "" {
-			s.config.Profile[profile].LogFile = config.Defaults.LogFile
+		if s.config.Defaults.LogFile != "" {
+			s.config.Profile[profile].LogFile = s.config.Defaults.LogFile
 		}
 	}
 	if s.config.Profile[profile].LockDir == "" {
-		s.config.Profile[profile].LockDir = config.Defaults.LockDir
+		s.config.Profile[profile].LockDir = s.config.Defaults.LockDir
+	}
+	if s.config.Defaults.ProxyServer != "" && s.config.Defaults.ProxyPort == 0 {
+		return errors.New("required configurable proxyport not set")
+	}
+	if s.config.Defaults.ProxyServer != "" {
+		if s.config.Profile[profile].ProxyServer == "" {
+			s.config.Profile[profile].ProxyServer = s.config.Defaults.ProxyServer
+			s.config.Profile[profile].ProxyPort = s.config.Defaults.ProxyPort
+		}
+	}
+	if s.config.Profile[profile].ProxyServer != "" && s.config.Profile[profile].ProxyPort == 0 {
+		return errors.New("required profile configurable proxyport not set")
+	}
+	if s.config.Profile[profile].ProxyServer != "" {
+		if s.config.Profile[profile].ProxyPort < 1 || s.config.Profile[profile].ProxyPort > 0xffff {
+			return fmt.Errorf("profile proxy port number out of range: %d", s.config.Profile[profile].ProxyPort)
+		}
 	}
 	if s.config.Profile[profile].Debug {
 		debug = s.config.Profile[profile].Debug
 	}
-	if config.Defaults.InsecureCiphers {
-		s.insecure = config.Defaults.InsecureCiphers
+	if s.config.Defaults.InsecureCiphers {
+		s.insecure = s.config.Defaults.InsecureCiphers
 	}
 	if s.config.Profile[profile].InsecureCiphers {
 		s.insecure = s.config.Profile[profile].InsecureCiphers
@@ -378,3 +439,36 @@ func (s *SftpSession) getKeyFile(fkey string) (key ssh.Signer, err error) {
 	}
 	return key, nil
 }
+
+/*
+// A Dialer is a means to establish a connection.
+type Dialer interface {
+	// Dial connects to the given address via the proxy.
+	Dial(network, addr string) (c net.Conn, err error)
+}
+
+type proxy struct {
+	network, paddr string
+	forward        Dialer
+}
+
+func (p *proxy) Dial(network, addr string) (net.Conn, error) {
+	switch network {
+	case "tcp", "tcp6", "tcp4":
+	default:
+		return nil, errors.New("proxy: no support for http proxy connections of type " + network)
+	}
+
+	conn, err := s.forward.Dial(s.network, s.addr)
+	if err != nil {
+		return nil, err
+	}
+	closeConn := &conn
+	defer func() {
+		if closeConn != nil {
+			(*closeConn).Close()
+		}
+	}()
+
+}
+*/

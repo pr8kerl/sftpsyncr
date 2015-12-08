@@ -2,6 +2,7 @@ package main
 
 import (
 	//	"errors"
+	"fmt"
 	"gopkg.in/gcfg.v1"
 	"log"
 	"regexp"
@@ -19,6 +20,8 @@ type Config struct {
 		MatchRegExp     string
 		LogFile         string
 		LockDir         string
+		ProxyServer     string
+		ProxyPort       uint32
 		InsecureCiphers bool
 		Debug           bool
 	}
@@ -36,6 +39,8 @@ type Section struct {
 	RemoteDir       string
 	LogFile         string
 	LockDir         string
+	ProxyServer     string
+	ProxyPort       uint32
 	InsecureCiphers bool
 	Debug           bool
 }
@@ -46,8 +51,12 @@ func InitialiseConfig(file string) error {
 	if err != nil {
 		return err
 	}
+
 	if config.Defaults.Port == 0 {
 		config.Defaults.Port = 22
+	}
+	if config.Defaults.Port < 1 || config.Defaults.Port > 0xffff {
+		return fmt.Errorf("port number out of range: %d", config.Defaults.Port)
 	}
 	if config.Defaults.MatchRegExp == "" {
 		config.Defaults.MatchRegExp = ".*"
