@@ -6,19 +6,24 @@ matchregexp = .*
 lockdir = /tmp/sftpsyncr.lock
 ;insecureciphers = false
 debug = true
+;proxyserver = 192.168.0.100
+;proxyport = 8080
 
 # config file
 [profile "default"]
 server = localhost
 username = luser
 password = letmein
-;key = 
+;key = /home/luser/.ssh/id_rsa
 ;port = 22
 ;matchregexp = *
 localdir = /tmp/local
 remotedir = remote
 ;logfile = /tmp/sftpsyncr.log
 ;lockdir = /tmp/sftpsyncr.lock
-;insecureciphers = false
+; enable the use of cbc ciphers
+insecureciphers = true
 ;debug = false
+;proxyserver = 192.168.0.100
+;proxyport = 8080
 

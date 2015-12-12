@@ -73,23 +73,24 @@ func (c *PushCommand) Run(args []string) int {
 				log.Printf("DEBUG remote directory %s already exists on remote\n", config.Profile[profile].RemoteDir)
 			}
 		} else {
-			err = sess.MkDirRemote(config.Profile[profile].RemoteDir)
+			err = sess.MkDirRemote(config.Profile[profile].RemoteDir, 0700)
 		}
 
 		// for each local file, if it isn't on remote, send
 		for path := range sess.LocalFiles {
 
 			var lsize, rsize int64 = 0, 0
-			_, rexists := sess.RemoteFiles[path]
+			rfinfo, rexists := sess.RemoteFiles[path]
+			lfinfo := sess.LocalFiles[path]
 
-			lsize = sess.LocalFiles[path].Size()
+			lsize = lfinfo.Size()
 
 			if debug {
 				log.Printf("DEBUG processing local path : %s, %d\n", path, lsize)
 			}
 
 			if rexists {
-				rsize = sess.RemoteFiles[path].Size()
+				rsize = rfinfo.Size()
 			}
 
 			// ignore if it is on remote
@@ -108,12 +109,13 @@ func (c *PushCommand) Run(args []string) int {
 				rfile := filepath.Join(config.Profile[profile].RemoteDir, path)
 				// prepend the local dir to the local file path
 				lfile := filepath.Join(config.Profile[profile].LocalDir, path)
-				if sess.LocalFiles[path].IsDir() {
+				mode := lfinfo.Mode()
+				if lfinfo.IsDir() {
 					log.Printf("push directory %s\n", rfile)
-					sess.MkDirRemote(rfile)
+					sess.MkDirRemote(rfile, mode)
 				} else {
 					log.Printf("push file %s size %d\n", rfile, lsize)
-					err := sess.Push(lfile, lsize, rfile)
+					err := sess.Push(lfile, rfile, lsize, mode)
 					if err != nil {
 						log.Printf("error sending file : %s %s\n", path, err)
 						// bail??

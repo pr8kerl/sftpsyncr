@@ -245,6 +245,14 @@ func (s *SftpSession) initSftpSession() error {
 		Config: sshCommonConfig,
 	}
 
+	// test for local directory
+	if _, err := os.Stat(s.config.Profile[profile].LocalDir); err != nil {
+		if os.IsNotExist(err) {
+			// file does not exist
+			return fmt.Errorf("error : local directory does not exist : %s", s.config.Profile[profile].LocalDir)
+		}
+	}
+
 	// grab lock directory
 	if s.config.Profile[profile].LockDir == "" {
 		return errors.New("error : required configurable lockdir is not set.")
@@ -252,17 +260,9 @@ func (s *SftpSession) initSftpSession() error {
 	if debug {
 		log.Printf("DEBUG mklockdir: %s\n", s.config.Profile[profile].LockDir)
 	}
-	err = os.Mkdir(s.config.Profile[profile].LockDir, 022)
+	err = os.Mkdir(s.config.Profile[profile].LockDir, 0700)
 	if err != nil {
 		return fmt.Errorf("mkLockDir error : %s", err)
-	}
-
-	// test for local directory
-	if _, err := os.Stat(s.config.Profile[profile].LocalDir); err != nil {
-		if os.IsNotExist(err) {
-			// file does not exist
-			return fmt.Errorf("error : local directory does not exist : %s", s.config.Profile[profile].LocalDir)
-		}
 	}
 
 	return nil
@@ -311,9 +311,6 @@ func (s *SftpSession) WalkRemote() error {
 			return err
 		}
 	}
-	if debug {
-		log.Printf("DEBUG remote dir: %s\n", s.config.Profile[profile].RemoteDir)
-	}
 	walker := s.client.Walk(s.config.Profile[profile].RemoteDir)
 	for walker.Step() {
 		if err := walker.Err(); err != nil {
@@ -346,7 +343,7 @@ func (s *SftpSession) WalkRemote() error {
 
 }
 
-func (s *SftpSession) MkDirRemote(rdir string) error {
+func (s *SftpSession) MkDirRemote(rdir string, rmode os.FileMode) error {
 	if s.client == nil {
 		err := s.Connect()
 		if err != nil {
@@ -357,10 +354,15 @@ func (s *SftpSession) MkDirRemote(rdir string) error {
 	if err != nil {
 		return err
 	}
+	err = s.client.Chmod(rdir, rmode)
+	if err != nil {
+		// ignore chmod errors for now - just log it
+		log.Printf("warning: error setting mode on remote dir: %s %s", rdir, err.Error())
+	}
 	return nil
 }
 
-func (s *SftpSession) Push(lfile string, size int64, rfile string) error {
+func (s *SftpSession) Push(lfile string, rfile string, size int64, rmode os.FileMode) error {
 
 	if s.client == nil {
 		err := s.Connect()
@@ -368,7 +370,8 @@ func (s *SftpSession) Push(lfile string, size int64, rfile string) error {
 			return err
 		}
 	}
-	// open file on remote host
+
+	// it's a file on remote host
 	w, err := s.client.Create(rfile)
 	if err != nil {
 		return err
@@ -387,14 +390,26 @@ func (s *SftpSession) Push(lfile string, size int64, rfile string) error {
 		return err
 	}
 	if n != size {
-		log.Fatalf("copy: expected %v bytes, got %d", size, n)
+		return fmt.Errorf("copy error: expected %v bytes, copied %d bytes", size, n)
 	}
 	log.Printf("wrote %v bytes in %s", size, time.Since(t1))
+
+	err = w.Chmod(rmode)
+	if err != nil {
+		return err
+	}
+
+	/*
+		err = s.client.Chmod(rfile, rmode)
+		if err != nil {
+			return err
+		}
+	*/
 
 	return nil
 }
 
-func (s *SftpSession) Pull(rfile string, size int64, lfile string) error {
+func (s *SftpSession) Pull(rfile string, lfile string, size int64, mode os.FileMode) error {
 
 	if s.client == nil {
 		err := s.Connect()
@@ -421,10 +436,14 @@ func (s *SftpSession) Pull(rfile string, size int64, lfile string) error {
 		return err
 	}
 	if n != size {
-		log.Fatalf("pull copy: expected %v bytes, got %d", size, n)
+		return fmt.Errorf("pull copy: expected %v bytes, got %d", size, n)
 	}
 	log.Printf("pull wrote %v bytes in %s", size, time.Since(t1))
 
+	err = w.Chmod(mode)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

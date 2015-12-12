@@ -71,17 +71,17 @@ func (c *PullCommand) Run(args []string) int {
 		for path := range sess.RemoteFiles {
 
 			var lsize, rsize int64 = 0, 0
-			_, lexists := sess.LocalFiles[path]
+			lfinfo, lexists := sess.LocalFiles[path]
 
-			rfile := sess.RemoteFiles[path]
-			rsize = rfile.Size()
+			rfinfo := sess.RemoteFiles[path]
+			rsize = rfinfo.Size()
 
 			if debug {
 				log.Printf("DEBUG processing remote path : %s, %d\n", path, rsize)
 			}
 
 			if lexists {
-				lsize = sess.LocalFiles[path].Size()
+				lsize = lfinfo.Size()
 			}
 
 			// ignore if it is on local
@@ -100,14 +100,14 @@ func (c *PullCommand) Run(args []string) int {
 				rfilepath := filepath.Join(config.Profile[profile].RemoteDir, path)
 				// prepend the local dir to the local file path
 				lfilepath := filepath.Join(config.Profile[profile].LocalDir, path)
-				if rfile.IsDir() {
+				rmode := rfinfo.Mode()
+				if rfinfo.IsDir() {
 					log.Printf("pull directory %s\n", rfilepath)
-					//sess.MkDirRemote(rfile)
 					// test for local directory
 					if _, err := os.Stat(lfilepath); err != nil {
 						if os.IsNotExist(err) {
 							// dir does not exist
-							err = os.Mkdir(lfilepath, rfile.Mode())
+							err = os.Mkdir(lfilepath, rmode)
 							if err != nil {
 								log.Printf("error creating local directory path : %s, %s\n", lfilepath, err)
 							}
@@ -119,7 +119,7 @@ func (c *PullCommand) Run(args []string) int {
 				} else {
 					log.Printf("pull file %s size %d\n", rfilepath, rsize)
 
-					err := sess.Pull(rfilepath, rsize, lfilepath)
+					err := sess.Pull(rfilepath, lfilepath, rsize, rmode)
 					if err != nil {
 						log.Printf("error pulling file : %s %s\n", path, err)
 						// bail??
