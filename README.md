@@ -2,6 +2,7 @@
 
 An sftp cmd line client.
 Allows syncing of entire directories to or from a remote sftp server.
+Has basic http connect proxy support.
 
 Not yet complete.
 
@@ -10,6 +11,7 @@ Does push and pull.
 ## To do
 * ~~http connect proxy support~~
 * ~~set filemode or dirmode~~
+* set filemode or dirmode correctly
 * optional encrypt/decrypt of files
 * remove files after transfer
 * archive files after transfer
