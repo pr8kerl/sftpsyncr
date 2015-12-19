@@ -8,11 +8,15 @@ import (
 
 var (
 	profile string
+	version string = "0.1."
+	commit  string = "unset"
 )
 
 func main() {
 
-	c := cli.NewCLI("sftpsyncr", "0.0.1")
+	version = version + commit
+
+	c := cli.NewCLI("sftpsyncr", version)
 	c.Args = os.Args[1:]
 
 	c.Commands = map[string]cli.CommandFactory{
@@ -22,7 +26,7 @@ func main() {
 
 	exitStatus, err := c.Run()
 	if err != nil {
-		log.Println(os.Stderr, err.Error())
+		log.Println(err.Error())
 	}
 
 	os.Exit(exitStatus)

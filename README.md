@@ -10,13 +10,11 @@ Does push and pull.
 
 ## To do
 * ~~http connect proxy support~~
-* ~~set filemode or dirmode~~
-* set filemode or dirmode correctly
+* ~~set filemode same as source file~~
 * optional encrypt/decrypt of files
 * remove files after transfer
 * archive files after transfer
-* run an optional custom script after each transfer
-* run an optional custom script after complete transfer session
+* run an optional custom script after transfer session
 
 ## Notes
 
@@ -28,4 +26,7 @@ Uncomment the cipher here:  https://github.com/golang/crypto/blob/master/ssh/cip
 Using SciptRock/ssh and ScriptRock/sftp for now to support dodgy algos.
 Neither sftp library appears to support compression atm.
 
+### GPG
+
+Golang GPG examples (here)[http://julianyap.com/2014/07/04/gnu-privacy-guard-gpg-examples-using-golang.html]. Thanks Julian!
 
