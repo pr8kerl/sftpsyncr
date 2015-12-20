@@ -23,19 +23,17 @@ type SftpSession struct {
 	RemoteFiles map[string]os.FileInfo
 	connection  *ssh.Client
 	client      *sftp.Client
-	config      *Config
-	section     string
+	section     *Section
 	insecure    bool
 	sshConfig   ssh.ClientConfig
 	fileregexp  *regexp.Regexp
 }
 
-func NewSftpSession(cfg *Config, pname string) (*SftpSession, error) {
+func NewSftpSession(cfg *Section) (*SftpSession, error) {
 	s := SftpSession{
 		LocalFiles:  make(map[string]os.FileInfo),
 		RemoteFiles: make(map[string]os.FileInfo),
-		config:      cfg,
-		section:     pname,
+		section:     cfg,
 		insecure:    false,
 		connection:  nil,
 		client:      nil,
@@ -54,12 +52,12 @@ func NewSftpSession(cfg *Config, pname string) (*SftpSession, error) {
 
 func (s *SftpSession) Connect() error {
 
-	addr := fmt.Sprintf("%s:%d", s.config.Profile[profile].Server, s.config.Profile[profile].Port)
+	addr := fmt.Sprintf("%s:%d", s.section.Server, s.section.Port)
 	var err error
 
-	if s.config.Profile[profile].ProxyServer != "" {
+	if s.section.ProxyServer != "" {
 
-		paddr := fmt.Sprintf("%s:%d", s.config.Profile[profile].ProxyServer, s.config.Profile[profile].ProxyPort)
+		paddr := fmt.Sprintf("%s:%d", s.section.ProxyServer, s.section.ProxyPort)
 		log.Printf("connect to proxy %s", paddr)
 		conn, err := net.Dial("tcp", paddr)
 		if err != nil {
@@ -118,7 +116,7 @@ func (s *SftpSession) Close() error {
 		s.client.Close()
 	}
 
-	err := os.Remove(s.config.Profile[profile].LockDir)
+	err := os.Remove(s.section.LockDir)
 	if err != nil {
 		return fmt.Errorf("unable to remove lock directory, %s", err)
 	}
@@ -129,76 +127,14 @@ func (s *SftpSession) Close() error {
 
 func (s *SftpSession) initSftpSession() error {
 
-	if s.config.Profile[profile].Server == "" {
-		return errors.New("required profile configurable server not set")
-	}
-	if s.config.Profile[profile].Username == "" {
-		return errors.New("required profile configurable username not set")
-	}
-	if s.config.Profile[profile].Password == "" && s.config.Profile[profile].Key == "" {
-		if len(os.Getenv("SSH_AUTH_SOCK")) == 0 {
-			return errors.New("set an auth method using an ssh-agent and SSH_AUTH_SOCK env, or by setting a key or a password in the config file.")
-		}
-	}
-	if s.config.Profile[profile].Port == 0 {
-		s.config.Profile[profile].Port = s.config.Defaults.Port
-	}
-	if s.config.Profile[profile].Port < 1 || s.config.Profile[profile].Port > 0xffff {
-		return fmt.Errorf("profile port number out of range: %d", s.config.Profile[profile].Port)
-	}
-
-	if s.config.Profile[profile].MatchRegExp == "" {
-		s.config.Profile[profile].MatchRegExp = s.config.Defaults.MatchRegExp
-	}
-	if s.config.Profile[profile].LocalDir == "" {
-		return errors.New("required profile configurable localdir not set")
-	}
-	if s.config.Profile[profile].RemoteDir == "" {
-		return errors.New("required profile configurable remotedir not set")
-	}
-	if s.config.Profile[profile].LogFile == "" {
-		if s.config.Defaults.LogFile != "" {
-			s.config.Profile[profile].LogFile = s.config.Defaults.LogFile
-		}
-	}
-	if s.config.Profile[profile].LockDir == "" {
-		s.config.Profile[profile].LockDir = s.config.Defaults.LockDir
-	}
-	if s.config.Defaults.ProxyServer != "" && s.config.Defaults.ProxyPort == 0 {
-		return errors.New("required configurable proxyport not set")
-	}
-	if s.config.Defaults.ProxyServer != "" {
-		if s.config.Profile[profile].ProxyServer == "" {
-			s.config.Profile[profile].ProxyServer = s.config.Defaults.ProxyServer
-			s.config.Profile[profile].ProxyPort = s.config.Defaults.ProxyPort
-		}
-	}
-	if s.config.Profile[profile].ProxyServer != "" && s.config.Profile[profile].ProxyPort == 0 {
-		return errors.New("required profile configurable proxyport not set")
-	}
-	if s.config.Profile[profile].ProxyServer != "" {
-		if s.config.Profile[profile].ProxyPort < 1 || s.config.Profile[profile].ProxyPort > 0xffff {
-			return fmt.Errorf("profile proxy port number out of range: %d", s.config.Profile[profile].ProxyPort)
-		}
-	}
-	if s.config.Profile[profile].Debug {
-		debug = s.config.Profile[profile].Debug
-	}
-	if s.config.Defaults.InsecureCiphers {
-		s.insecure = s.config.Defaults.InsecureCiphers
-	}
-	if s.config.Profile[profile].InsecureCiphers {
-		s.insecure = s.config.Profile[profile].InsecureCiphers
-	}
-
 	var err error
-	s.fileregexp, err = regexp.Compile(s.config.Profile[profile].MatchRegExp)
+	s.fileregexp, err = regexp.Compile(s.section.MatchRegExp)
 	if err != nil {
 		return err
 	}
 
-	if s.config.Profile[profile].LogFile != "" {
-		err = s.setLog(s.config.Profile[profile].LogFile)
+	if s.section.LogFile != "" {
+		err = s.setLog(s.section.LogFile)
 		if err != nil {
 			return err
 		}
@@ -210,17 +146,17 @@ func (s *SftpSession) initSftpSession() error {
 		auths = append(auths, ssh.PublicKeysCallback(agent.NewClient(aconn).Signers))
 	}
 	// if key is set, add to allowed auths
-	if s.config.Profile[profile].Key != "" {
-		key, err := s.getKeyFile(s.config.Profile[profile].Key)
+	if s.section.Key != "" {
+		key, err := s.getKeyFile(s.section.Key)
 		if err != nil {
-			return fmt.Errorf("error : cannot read ssh key file %s, %s", s.config.Profile[profile].Key, err)
+			return fmt.Errorf("error : cannot read ssh key file %s, %s", s.section.Key, err)
 		} else {
 			auths = append(auths, ssh.PublicKeys(key))
 		}
 	}
 	// add a password if set
-	if s.config.Profile[profile].Password != "" {
-		auths = append(auths, ssh.Password(s.config.Profile[profile].Password))
+	if s.section.Password != "" {
+		auths = append(auths, ssh.Password(s.section.Password))
 	}
 
 	// configure ssh
@@ -240,27 +176,24 @@ func (s *SftpSession) initSftpSession() error {
 	sshCommonConfig.SetDefaults()
 
 	s.sshConfig = ssh.ClientConfig{
-		User:   s.config.Profile[profile].Username,
+		User:   s.section.Username,
 		Auth:   auths,
 		Config: sshCommonConfig,
 	}
 
 	// test for local directory
-	if _, err := os.Stat(s.config.Profile[profile].LocalDir); err != nil {
+	if _, err := os.Stat(s.section.LocalDir); err != nil {
 		if os.IsNotExist(err) {
 			// file does not exist
-			return fmt.Errorf("error : local directory does not exist : %s", s.config.Profile[profile].LocalDir)
+			return fmt.Errorf("error : local directory does not exist : %s", s.section.LocalDir)
 		}
 	}
 
 	// grab lock directory
-	if s.config.Profile[profile].LockDir == "" {
-		return errors.New("error : required configurable lockdir is not set.")
-	}
 	if debug {
-		log.Printf("DEBUG mklockdir: %s\n", s.config.Profile[profile].LockDir)
+		log.Printf("DEBUG mklockdir: %s\n", s.section.LockDir)
 	}
-	err = os.Mkdir(s.config.Profile[profile].LockDir, 0700)
+	err = os.Mkdir(s.section.LockDir, 0700)
 	if err != nil {
 		return fmt.Errorf("mkLockDir error : %s", err)
 	}
@@ -311,7 +244,7 @@ func (s *SftpSession) WalkRemote() error {
 			return err
 		}
 	}
-	walker := s.client.Walk(s.config.Profile[profile].RemoteDir)
+	walker := s.client.Walk(s.section.RemoteDir)
 	for walker.Step() {
 		if err := walker.Err(); err != nil {
 			log.Println(err)
@@ -326,7 +259,7 @@ func (s *SftpSession) WalkRemote() error {
 		// only add the file to the list if it matches regexp
 		if matched := s.fileregexp.MatchString(rstat.Name()); matched {
 			p := walker.Path()
-			rel, _ := filepath.Rel(s.config.Profile[profile].RemoteDir, p)
+			rel, _ := filepath.Rel(s.section.RemoteDir, p)
 			s.RemoteFiles[rel] = rstat
 		}
 

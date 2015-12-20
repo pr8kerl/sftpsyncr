@@ -41,13 +41,13 @@ func (c *PullCommand) Run(args []string) int {
 	cmdFlags.Usage = func() { c.Ui.Output(c.Help()) }
 
 	// config
-	err := InitialiseConfig(cfgfile)
+	section, err := InitialiseConfig(cfgfile)
 	if err != nil {
 		log.Fatalf("error : failed to initialise config : %s", err)
 		return 1
 	}
 
-	sess, err := NewSftpSession(&config, profile)
+	sess, err := NewSftpSession(section)
 	if err != nil {
 		log.Printf("%s\n", err)
 		return 1
