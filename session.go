@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"github.com/ScriptRock/crypto/ssh"
 	"github.com/ScriptRock/crypto/ssh/agent"
+	"golang.org/x/crypto/openpgp"
 	"io"
 	"io/ioutil"
 	"log"
@@ -15,18 +16,23 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 )
 
 type SftpSession struct {
-	LocalFiles  map[string]os.FileInfo
-	RemoteFiles map[string]os.FileInfo
-	connection  *ssh.Client
-	client      *sftp.Client
-	section     *Section
-	insecure    bool
-	sshConfig   ssh.ClientConfig
-	fileregexp  *regexp.Regexp
+	LocalFiles    map[string]os.FileInfo
+	RemoteFiles   map[string]os.FileInfo
+	connection    *ssh.Client
+	client        *sftp.Client
+	section       *Section
+	insecure      bool
+	sshConfig     ssh.ClientConfig
+	sshkey        ssh.Signer
+	fileregexp    *regexp.Regexp
+	decryptEntity *openpgp.Entity
+	encryptEntity *openpgp.Entity
+	entityList    openpgp.EntityList
 }
 
 func NewSftpSession(cfg *Section) (*SftpSession, error) {
@@ -147,11 +153,13 @@ func (s *SftpSession) initSftpSession() error {
 	}
 	// if key is set, add to allowed auths
 	if s.section.Key != "" {
-		key, err := s.getKeyFile(s.section.Key)
+		err := s.getKeyFile(s.section.Key)
 		if err != nil {
 			return fmt.Errorf("error : cannot read ssh key file %s, %s", s.section.Key, err)
 		} else {
-			auths = append(auths, ssh.PublicKeys(key))
+			//auths = append(auths, ssh.PublicKeys(s.sshkeychain))
+			//auths = append(auths, ssh.PublicKeys(s.sshkey))
+			auths = []ssh.AuthMethod{ssh.PublicKeys(s.sshkey)}
 		}
 	}
 	// add a password if set
@@ -160,15 +168,6 @@ func (s *SftpSession) initSftpSession() error {
 	}
 
 	// configure ssh
-	/*
-		defaultPlusDiscouragedCiphers := []string{
-			"aes128-ctr", "aes192-ctr", "aes256-ctr",
-			"aes128-gcm@openssh.com",
-			"arcfour256", "arcfour128",
-			"aes128-cbc", "aes192-cbc", "aes256-cbc", "3des-cbc",
-		}
-	*/
-
 	sshCommonConfig := ssh.Config{}
 	if s.insecure {
 		sshCommonConfig = ssh.Config{Ciphers: ssh.AllSupportedCiphers()}
@@ -196,6 +195,56 @@ func (s *SftpSession) initSftpSession() error {
 	err = os.Mkdir(s.section.LockDir, 0700)
 	if err != nil {
 		return fmt.Errorf("mkLockDir error : %s", err)
+	}
+
+	// check pgp gumpf
+	if s.section.Encrypt {
+
+		// open public keyring
+		kr, err := os.Open(s.section.PublicKeyRing)
+		if err != nil {
+			return fmt.Errorf("open public keyring error: %s\n", err.Error())
+		}
+		defer kr.Close()
+
+		// read public keyring
+		eList, err := openpgp.ReadKeyRing(kr)
+		if err != nil {
+			return fmt.Errorf("read public keyring error: %s\n", err.Error())
+		}
+		// look for public key
+		s.encryptEntity = s.getKeyByIdShortString(eList, s.section.EncryptKeyId)
+		if s.encryptEntity == nil {
+			return fmt.Errorf("cannot find encryption key with ID : %s\n", s.section.EncryptKeyId)
+		}
+
+	}
+
+	if s.section.Decrypt {
+
+		// Open the private key file
+		kr, err := os.Open(s.section.PrivateKeyRing)
+		if err != nil {
+			return err
+		}
+		defer kr.Close()
+		s.entityList, err = openpgp.ReadKeyRing(kr)
+		if err != nil {
+			return err
+		}
+
+		s.decryptEntity = s.getKeyByIdShortString(s.entityList, s.section.DecryptKeyId)
+		if s.decryptEntity == nil {
+			return fmt.Errorf("cannot find decryption key with ID : %s\n", s.section.DecryptKeyId)
+		}
+
+		// Get the passphrase and read the private key.
+		passphrase := []byte(s.section.DecryptPassphrase)
+		s.decryptEntity.PrivateKey.Decrypt(passphrase)
+		for _, subkey := range s.decryptEntity.Subkeys {
+			subkey.PrivateKey.Decrypt(passphrase)
+		}
+
 	}
 
 	return nil
@@ -380,47 +429,87 @@ func (s *SftpSession) Pull(rfile string, lfile string, size int64, mode os.FileM
 	return nil
 }
 
-func (s *SftpSession) getKeyFile(fkey string) (key ssh.Signer, err error) {
+func (s *SftpSession) getKeyFile(fkey string) error {
 	buf, err := ioutil.ReadFile(fkey)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	key, err = ssh.ParsePrivateKey(buf)
+	s.sshkey, err = ssh.ParsePrivateKey(buf)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return key, nil
+	return nil
 }
 
-/*
-// A Dialer is a means to establish a connection.
-type Dialer interface {
-	// Dial connects to the given address via the proxy.
-	Dial(network, addr string) (c net.Conn, err error)
-}
+func (s *SftpSession) EncryptFile(fname string) (string, error) {
 
-type proxy struct {
-	network, paddr string
-	forward        Dialer
-}
-
-func (p *proxy) Dial(network, addr string) (net.Conn, error) {
-	switch network {
-	case "tcp", "tcp6", "tcp4":
-	default:
-		return nil, errors.New("proxy: no support for http proxy connections of type " + network)
-	}
-
-	conn, err := s.forward.Dial(s.network, s.addr)
+	// encrypted file
+	lfile := fname + s.section.EncryptSuffix
+	lw, err := os.Create(lfile)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	closeConn := &conn
-	defer func() {
-		if closeConn != nil {
-			(*closeConn).Close()
+	defer lw.Close()
+
+	w, err := openpgp.Encrypt(lw, []*openpgp.Entity{s.encryptEntity}, nil, nil, nil)
+	if err != nil {
+		return "", err
+	}
+
+	file2encrypt, err := os.Open(fname)
+	if err != nil {
+		return "", err
+	}
+
+	_, err = io.Copy(w, file2encrypt)
+	if err != nil {
+		return "", err
+	}
+
+	err = w.Close()
+	if err != nil {
+		return "", err
+	}
+
+	return lfile, nil
+}
+
+func (s *SftpSession) DecryptFile(fname string) (string, error) {
+
+	lr, err := os.Open(fname)
+	if err != nil {
+		return "", err
+	}
+	defer lr.Close()
+
+	fdecrypted := strings.TrimSuffix(fname, filepath.Ext(fname))
+
+	lw, err := os.Create(fdecrypted)
+	if err != nil {
+		return "", fmt.Errorf("open file error: %s, %s\n", fdecrypted, err.Error())
+	}
+
+	// Decrypt it with the contents of the private key
+	msg, err := openpgp.ReadMessage(lr, s.entityList, nil, nil)
+	if err != nil {
+		return "", err
+	}
+
+	_, err = io.Copy(lw, msg.UnverifiedBody)
+	if err != nil {
+		return "", err
+	}
+
+	return fdecrypted, nil
+}
+
+func (s *SftpSession) getKeyByIdShortString(keyring openpgp.EntityList, keyidstr string) *openpgp.Entity {
+	for _, entity := range keyring {
+		//kid := entity.PrimaryKey.KeyId
+		kid := entity.PrimaryKey.KeyIdShortString()
+		if kid == keyidstr {
+			return entity
 		}
-	}()
-
+	}
+	return nil
 }
-*/

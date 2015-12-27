@@ -8,6 +8,16 @@ lockdir = /tmp/sftpsyncr.lock
 debug = true
 ;proxyserver = 192.168.0.100
 ;proxyport = 8080
+;decrypt = false
+; hex id of public key; private key of this public is used to decrypt
+;decryptkeyid = ABCDEFG
+;decryptpassphrase = passphrase
+;encrypt = false
+; hex id of public key used to encrypt files
+;encryptkeyid = ABCDEFG
+;encryptsuffix = ".gpg"
+;publickeyring = "~/.gnupg/pubring.gpg"
+;privatekeyring = "~/.gnupg/secring.gpg"
 
 # config file
 [profile "default"]
@@ -26,4 +36,14 @@ insecureciphers = true
 ;debug = false
 ;proxyserver = 192.168.0.100
 ;proxyport = 8080
+decrypt = true
+; hex id of public key; private key of this public is used to decrypt
+decryptkeyid = ABCDEFG
+decryptpassphrase = passphrase
+;encrypt = false
+; hex id of public key used to encrypt files
+;encryptkeyid = ABCDEFG
+;encryptsuffix = ".gpg"
+;publickeyring = "~/.gnupg/pubring.gpg"
+;privatekeyring = "~/.gnupg/secring.gpg"
 
