@@ -6,10 +6,13 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type PullCommand struct {
-	Ui cli.Ui
+	Ui   cli.Ui
+	good []string
+	bad  []FileError
 }
 
 func pullCmdFactory() (cli.Command, error) {
@@ -20,11 +23,17 @@ func pullCmdFactory() (cli.Command, error) {
 		ErrorWriter: os.Stderr,
 	}
 
+	// initialise good/bad slices - capacity 128 by default
+	fgood := make([]string, 0, 128)
+	fbad := make([]FileError, 0, 128)
+
 	return &PullCommand{
 		Ui: &cli.ColoredUi{
 			Ui:          ui,
 			OutputColor: cli.UiColorBlue,
 		},
+		good: fgood,
+		bad:  fbad,
 	}, nil
 }
 
@@ -117,14 +126,43 @@ func (c *PullCommand) Run(args []string) int {
 						}
 					}
 				} else {
-					log.Printf("pull file %s size %d\n", rfilepath, rsize)
+					// log.Printf("pull file %s size %d\n", rfilepath, rsize)
 
 					err := sess.Pull(rfilepath, lfilepath, rsize, rmode)
 					if err != nil {
 						log.Printf("error pulling file : %s %s\n", path, err)
+						c.bad = append(c.bad, FileError{path: path, err: err})
 						// bail??
+						continue
 					}
+					if sess.section.Decrypt {
+						if strings.HasSuffix(lfilepath, sess.section.DecryptSuffix) {
+							newfile, err := sess.DecryptFile(lfilepath)
+							if err != nil {
+								log.Printf("pull error decrypting file : %s\n", err)
+								c.bad = append(c.bad, FileError{path: path, err: err})
+								continue
+							}
+							log.Printf("pull decrypted file %s to %s\n", lfilepath, newfile)
+						}
+
+					}
+					c.good = append(c.good, path)
 				}
+			}
+		}
+
+		// summarise results
+		if len(c.good) > 0 {
+			log.Printf("%d files successfully pulled\n", len(c.good))
+			for i := range c.good {
+				log.Printf("pulled: %s\n", c.good[i])
+			}
+		}
+		if len(c.bad) > 0 {
+			log.Printf("%d files had errors\n", len(c.bad))
+			for i := range c.bad {
+				log.Printf("not pulled: %s %s\n", c.bad[i].path, c.bad[i].err.Error())
 			}
 		}
 	} else {

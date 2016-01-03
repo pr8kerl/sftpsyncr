@@ -20,6 +20,11 @@ import (
 	"time"
 )
 
+type FileError struct {
+	path string
+	err  error
+}
+
 type SftpSession struct {
 	LocalFiles    map[string]os.FileInfo
 	RemoteFiles   map[string]os.FileInfo
@@ -381,13 +386,6 @@ func (s *SftpSession) Push(lfile string, rfile string, size int64, rmode os.File
 		return err
 	}
 
-	/*
-		err = s.client.Chmod(rfile, rmode)
-		if err != nil {
-			return err
-		}
-	*/
-
 	return nil
 }
 
@@ -418,9 +416,9 @@ func (s *SftpSession) Pull(rfile string, lfile string, size int64, mode os.FileM
 		return err
 	}
 	if n != size {
-		return fmt.Errorf("pull copy: expected %v bytes, got %d", size, n)
+		return fmt.Errorf("pull file %s : expected %v bytes, got %d", rfile, size, n)
 	}
-	log.Printf("pull wrote %v bytes in %s", size, time.Since(t1))
+	log.Printf("pull file %s, %v bytes in %s", rfile, size, time.Since(t1))
 
 	err = w.Chmod(mode)
 	if err != nil {
@@ -441,37 +439,42 @@ func (s *SftpSession) getKeyFile(fkey string) error {
 	return nil
 }
 
-func (s *SftpSession) EncryptFile(fname string) (string, error) {
+func (s *SftpSession) EncryptFile(fname string) (string, os.FileInfo, error) {
 
 	// encrypted file
 	lfile := fname + s.section.EncryptSuffix
 	lw, err := os.Create(lfile)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	defer lw.Close()
 
 	w, err := openpgp.Encrypt(lw, []*openpgp.Entity{s.encryptEntity}, nil, nil, nil)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	file2encrypt, err := os.Open(fname)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	_, err = io.Copy(w, file2encrypt)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	err = w.Close()
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
-	return lfile, nil
+	lstat, err := os.Stat(lfile)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return lfile, lstat, nil
 }
 
 func (s *SftpSession) DecryptFile(fname string) (string, error) {

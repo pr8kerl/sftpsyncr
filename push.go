@@ -6,10 +6,13 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type PushCommand struct {
-	Ui cli.Ui
+	Ui   cli.Ui
+	good []string
+	bad  []FileError
 }
 
 func pushCmdFactory() (cli.Command, error) {
@@ -20,11 +23,17 @@ func pushCmdFactory() (cli.Command, error) {
 		ErrorWriter: os.Stderr,
 	}
 
+	// initialise good/bad slices - capacity 128 by default
+	fgood := make([]string, 0, 128)
+	fbad := make([]FileError, 0, 128)
+
 	return &PushCommand{
 		Ui: &cli.ColoredUi{
 			Ui:          ui,
 			OutputColor: cli.UiColorBlue,
 		},
+		good: fgood,
+		bad:  fbad,
 	}, nil
 }
 
@@ -108,21 +117,51 @@ func (c *PushCommand) Run(args []string) int {
 				// prepend the remote dir to the remote file path
 				rfile := filepath.Join(config.Profile[profile].RemoteDir, path)
 				// prepend the local dir to the local file path
-				lfile := filepath.Join(config.Profile[profile].LocalDir, path)
+				lfilepath := filepath.Join(config.Profile[profile].LocalDir, path)
 				mode := lfinfo.Mode()
 				if lfinfo.IsDir() {
 					log.Printf("push directory %s\n", rfile)
 					sess.MkDirRemote(rfile, mode)
 				} else {
-					log.Printf("push file %s size %d\n", rfile, lsize)
-					err := sess.Push(lfile, rfile, lsize, mode)
-					if err != nil {
-						log.Printf("error sending file : %s %s\n", path, err)
-						// bail??
+
+					if sess.section.Encrypt && !strings.HasSuffix(lfilepath, sess.section.EncryptSuffix) {
+						lfilepath, lfinfo, err = sess.EncryptFile(lfilepath)
+						if err != nil {
+							log.Printf("push error encrypting file : %s, %s\n", lfilepath, err)
+							c.bad = append(c.bad, FileError{path: path, err: err})
+							continue
+						}
+						lsize = lfinfo.Size()
+						log.Printf("push encrypted file: %s\n", lfilepath)
+						rfile = rfile + sess.section.EncryptSuffix
 					}
+
+					log.Printf("push file %s size %d\n", rfile, lsize)
+					err := sess.Push(lfilepath, rfile, lsize, mode)
+					if err != nil {
+						log.Printf("error pushing file : %s %s\n", path, err)
+						c.bad = append(c.bad, FileError{path: path, err: err})
+						// bail??
+						continue
+					}
+					c.good = append(c.good, path)
 				}
 			}
 		}
+		// summarise results
+		if len(c.good) > 0 {
+			log.Printf("%d files successfully pushed\n", len(c.good))
+			for i := range c.good {
+				log.Printf("pushed: %s\n", c.good[i])
+			}
+		}
+		if len(c.bad) > 0 {
+			log.Printf("%d files had errors\n", len(c.bad))
+			for i := range c.bad {
+				log.Printf("not pushed: %s %s\n", c.bad[i].path, c.bad[i].err.Error())
+			}
+		}
+
 	} else {
 		log.Println("nothing to push")
 	}

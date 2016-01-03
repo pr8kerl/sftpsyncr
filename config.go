@@ -34,6 +34,7 @@ type Config struct {
 		DecryptKeyId      string
 		DecryptPassphrase string
 		EncryptSuffix     string
+		DecryptSuffix     string
 	}
 	Profile map[string]*Section
 }
@@ -60,6 +61,7 @@ type Section struct {
 	EncryptKeyId      string
 	DecryptKeyId      string
 	EncryptSuffix     string
+	DecryptSuffix     string
 	DecryptPassphrase string
 }
 
@@ -197,6 +199,12 @@ func InitialiseConfig(file string) (*Section, error) {
 	}
 	if config.Profile[profile].EncryptSuffix != "" && sectn.EncryptSuffix == "" {
 		sectn.EncryptSuffix = config.Profile[profile].EncryptSuffix
+	}
+	if config.Profile[profile].DecryptSuffix == "" && sectn.DecryptSuffix == "" {
+		sectn.DecryptSuffix = ".pgp"
+	}
+	if config.Profile[profile].DecryptSuffix != "" && sectn.DecryptSuffix == "" {
+		sectn.DecryptSuffix = config.Profile[profile].DecryptSuffix
 	}
 	if config.Profile[profile].DecryptPassphrase != "" && sectn.DecryptPassphrase == "" {
 		sectn.DecryptPassphrase = config.Profile[profile].DecryptPassphrase
