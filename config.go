@@ -32,6 +32,7 @@ type Config struct {
 		Encrypt           bool
 		Clean             bool
 		Archive           bool
+		ArchiveDir        string
 		PublicKeyRing     string
 		PrivateKeyRing    string
 		EncryptKeyId      string
@@ -62,6 +63,7 @@ type Section struct {
 	Encrypt           bool
 	Clean             bool
 	Archive           bool
+	ArchiveDir        string
 	PublicKeyRing     string
 	PrivateKeyRing    string
 	EncryptKeyId      string
@@ -184,6 +186,17 @@ func InitialiseConfig(file string) (*Section, error) {
 	}
 	if config.Profile[profile].Archive {
 		archive = config.Profile[profile].Archive
+	}
+	if archive {
+		if config.Profile[profile].ArchiveDir == "" {
+			if config.Defaults.ArchiveDir == "" {
+				return nil, errors.New("if archive is set, profile configurable archivedir is required")
+			} else {
+				sectn.ArchiveDir = config.Defaults.ArchiveDir
+			}
+		} else {
+			sectn.ArchiveDir = config.Profile[profile].ArchiveDir
+		}
 	}
 
 	if config.Defaults.InsecureCiphers {

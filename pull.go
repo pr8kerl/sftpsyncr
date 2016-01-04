@@ -74,12 +74,13 @@ func (c *PullCommand) Run(args []string) int {
 	if len(sess.RemoteFiles) > 0 {
 
 		// build local file list
-		filepath.Walk(config.Profile[profile].LocalDir, sess.WalkLocal)
+		filepath.Walk(sess.section.LocalDir, sess.WalkLocal)
 
 		// for each remote file, if it isn't on local, pull
 		for path := range sess.RemoteFiles {
 
 			var lsize, rsize int64 = 0, 0
+			var archivepath string
 			lfinfo, lexists := sess.LocalFiles[path]
 
 			rfinfo := sess.RemoteFiles[path]
@@ -106,9 +107,12 @@ func (c *PullCommand) Run(args []string) int {
 
 				// if it isn't on local and it's a different size, pull it
 				// prepend the remote dir to the remote file path
-				rfilepath := filepath.Join(config.Profile[profile].RemoteDir, path)
+				rfilepath := filepath.Join(sess.section.RemoteDir, path)
 				// prepend the local dir to the local file path
-				lfilepath := filepath.Join(config.Profile[profile].LocalDir, path)
+				lfilepath := filepath.Join(sess.section.LocalDir, path)
+				if archive {
+					archivepath = filepath.Join(sess.section.ArchiveDir, path)
+				}
 				rmode := rfinfo.Mode()
 				if rfinfo.IsDir() {
 					log.Printf("pull directory %s\n", rfilepath)
@@ -125,8 +129,21 @@ func (c *PullCommand) Run(args []string) int {
 							}
 						}
 					}
+					if archive {
+						if _, err := os.Stat(archivepath); err != nil {
+							if os.IsNotExist(err) {
+								// dir does not exist
+								err = os.Mkdir(archivepath, rmode)
+								if err != nil {
+									log.Printf("error creating archive directory path : %s, %s\n", archivepath, err)
+								}
+								if debug {
+									log.Printf("DEBUG created archive dir %s\n", archivepath)
+								}
+							}
+						}
+					}
 				} else {
-					// log.Printf("pull file %s size %d\n", rfilepath, rsize)
 
 					err := sess.Pull(rfilepath, lfilepath, rsize, rmode)
 					if err != nil {
@@ -134,6 +151,18 @@ func (c *PullCommand) Run(args []string) int {
 						c.bad = append(c.bad, FileError{path: path, err: err})
 						// bail??
 						continue
+					}
+					if archive {
+						// copy lfilepath to archivepath
+						err := sess.CopyFile(lfilepath, archivepath)
+						if err != nil {
+							log.Printf("error archiving file : %s %s\n", path, err)
+							c.bad = append(c.bad, FileError{path: path, err: err})
+							continue
+						}
+						if debug {
+							log.Printf("DEBUG archive file %s\n", archivepath)
+						}
 					}
 					if sess.section.Decrypt {
 						if strings.HasSuffix(lfilepath, sess.section.DecryptSuffix) {
