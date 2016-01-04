@@ -118,10 +118,14 @@ func (c *PushCommand) Run(args []string) int {
 				rfile := filepath.Join(config.Profile[profile].RemoteDir, path)
 				// prepend the local dir to the local file path
 				lfilepath := filepath.Join(config.Profile[profile].LocalDir, path)
+				lfilesrc := lfilepath
 				mode := lfinfo.Mode()
+
 				if lfinfo.IsDir() {
+
 					log.Printf("push directory %s\n", rfile)
 					sess.MkDirRemote(rfile, mode)
+
 				} else {
 
 					if sess.section.Encrypt && !strings.HasSuffix(lfilepath, sess.section.EncryptSuffix) {
@@ -144,6 +148,25 @@ func (c *PushCommand) Run(args []string) int {
 						// bail??
 						continue
 					}
+					if clean {
+
+						if sess.section.Encrypt {
+							err := os.Remove(lfilepath)
+							if err != nil {
+								log.Printf("clean error removing : %s, %s", lfilepath, err)
+								c.bad = append(c.bad, FileError{path: path, err: err})
+							}
+							log.Printf("cleaned : %s", lfilepath)
+						}
+						err := os.Remove(lfilesrc)
+						if err != nil {
+							log.Printf("clean error removing : %s, %s", lfilesrc, err)
+							c.bad = append(c.bad, FileError{path: path, err: err})
+						}
+						log.Printf("cleaned : %s", lfilesrc)
+
+					}
+
 					c.good = append(c.good, path)
 				}
 			}

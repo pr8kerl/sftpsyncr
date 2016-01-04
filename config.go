@@ -13,6 +13,8 @@ import (
 var (
 	config     Config
 	debug      bool = false
+	clean      bool = false
+	archive    bool = false
 	fileregexp *regexp.Regexp
 )
 
@@ -28,6 +30,8 @@ type Config struct {
 		Debug             bool
 		Decrypt           bool
 		Encrypt           bool
+		Clean             bool
+		Archive           bool
 		PublicKeyRing     string
 		PrivateKeyRing    string
 		EncryptKeyId      string
@@ -56,6 +60,8 @@ type Section struct {
 	Debug             bool
 	Decrypt           bool
 	Encrypt           bool
+	Clean             bool
+	Archive           bool
 	PublicKeyRing     string
 	PrivateKeyRing    string
 	EncryptKeyId      string
@@ -88,6 +94,12 @@ func InitialiseConfig(file string) (*Section, error) {
 	}
 	if config.Defaults.Debug {
 		debug = config.Defaults.Debug
+	}
+	if config.Defaults.Clean {
+		clean = config.Defaults.Clean
+	}
+	if config.Defaults.Archive {
+		archive = config.Defaults.Archive
 	}
 	if config.Profile[profile].Server == "" {
 		return nil, errors.New("required profile configurable server not set")
@@ -166,6 +178,12 @@ func InitialiseConfig(file string) (*Section, error) {
 
 	if config.Profile[profile].Debug {
 		debug = config.Profile[profile].Debug
+	}
+	if config.Profile[profile].Clean {
+		clean = config.Profile[profile].Clean
+	}
+	if config.Profile[profile].Archive {
+		archive = config.Profile[profile].Archive
 	}
 
 	if config.Defaults.InsecureCiphers {

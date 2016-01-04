@@ -147,6 +147,14 @@ func (c *PullCommand) Run(args []string) int {
 						}
 
 					}
+					if clean {
+						err := sess.RemoveRemote(rfilepath)
+						if err != nil {
+							log.Printf("error removing remote file : %s %s\n", path, err)
+							c.bad = append(c.bad, FileError{path: path, err: err})
+							continue
+						}
+					}
 					c.good = append(c.good, path)
 				}
 			}

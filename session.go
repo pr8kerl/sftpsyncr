@@ -349,6 +349,23 @@ func (s *SftpSession) MkDirRemote(rdir string, rmode os.FileMode) error {
 	return nil
 }
 
+func (s *SftpSession) RemoveRemote(rname string) error {
+
+	if s.client == nil {
+		err := s.Connect()
+		if err != nil {
+			return err
+		}
+	}
+
+	err := s.client.Remove(rname)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *SftpSession) Push(lfile string, rfile string, size int64, rmode os.FileMode) error {
 
 	if s.client == nil {
