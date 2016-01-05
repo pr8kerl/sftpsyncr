@@ -1,32 +1,40 @@
 ; config file
 [defaults]
 port = 22
-matchregexp = .*
+;matchregexp = .*
 ;logfile = /tmp/sftpsyncr.log
 lockdir = /tmp/sftpsyncr.lock
+; insecureciphers - enable use of weaker cbc ciphers
 ;insecureciphers = false
-debug = true
+;debug = true
 ;proxyserver = 192.168.0.100
 ;proxyport = 8080
-;decrypt = false
-; hex id of public key; private key of this public is used to decrypt
-;decryptkeyid = ABCDEFG
-;decryptpassphrase = passphrase
-;encrypt = false
-; hex id of public key used to encrypt files
-;encryptkeyid = ABCDEFG
-;encryptsuffix = ".gpg"
 ;publickeyring = "~/.gnupg/pubring.gpg"
 ;privatekeyring = "~/.gnupg/secring.gpg"
+;decrypt = false
+; hex id of public key - the private key of this keypair is used to decrypt
+;decryptkeyid = 3D0A8209
+;decryptpassphrase = passphrase
+;decryptsuffix = ".pgp"
+;encrypt = false
+; hex id of public key used to encrypt files
+;encryptkeyid = 3D0A8209
+;encryptsuffix = ".pgp"
+; clean - remove src file after successful push or successful pull
+clean = false
+; archive - save a copy of the original file before pushing or after pulling
+archive = false
+; archive location
+;archivedir = /tmp/archive
 
 # config file
-[profile "default"]
+[profile "transfername"]
 server = localhost
 username = luser
-password = letmein
-;key = /home/luser/.ssh/id_rsa
+;password = letmein
+key = /home/luser/.ssh/id_rsa
 ;port = 22
-;matchregexp = *
+;matchregexp = .*
 localdir = /tmp/local
 remotedir = remote
 ;logfile = /tmp/sftpsyncr.log
@@ -36,14 +44,22 @@ insecureciphers = true
 ;debug = false
 ;proxyserver = 192.168.0.100
 ;proxyport = 8080
-decrypt = true
-; hex id of public key; private key of this public is used to decrypt
-decryptkeyid = ABCDEFG
-decryptpassphrase = passphrase
-;encrypt = false
-; hex id of public key used to encrypt files
-;encryptkeyid = ABCDEFG
-;encryptsuffix = ".gpg"
 ;publickeyring = "~/.gnupg/pubring.gpg"
 ;privatekeyring = "~/.gnupg/secring.gpg"
+decrypt = true
+; hex id of public key - the private key of this keypair is used to decrypt
+decryptkeyid = 3D0A8209
+decryptpassphrase = passphrase
+decryptsuffix = ".gpg"
+;encrypt = false
+; hex id of public key used to encrypt files
+;encryptkeyid = 3D0A8209
+;encryptsuffix = ".gpg"
+debug = true
+; clean - remove src file after successful push or successful pull
+clean = false
+; archive - save a copy of the original file before pushing or after pulling
+archive = true
+; archive location
+archivedir = /tmp/archive
 

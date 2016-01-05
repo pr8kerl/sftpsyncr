@@ -201,6 +201,7 @@ func (c *PullCommand) Run(args []string) int {
 			for i := range c.bad {
 				log.Printf("not pulled: %s %s\n", c.bad[i].path, c.bad[i].err.Error())
 			}
+			return 1
 		}
 	} else {
 		log.Println("nothing to pull")

@@ -89,6 +89,8 @@ func (c *PushCommand) Run(args []string) int {
 		for path := range sess.LocalFiles {
 
 			var lsize, rsize int64 = 0, 0
+			var archivepath string
+
 			rfinfo, rexists := sess.RemoteFiles[path]
 			lfinfo := sess.LocalFiles[path]
 
@@ -118,6 +120,9 @@ func (c *PushCommand) Run(args []string) int {
 				rfile := filepath.Join(config.Profile[profile].RemoteDir, path)
 				// prepend the local dir to the local file path
 				lfilepath := filepath.Join(config.Profile[profile].LocalDir, path)
+				if archive {
+					archivepath = filepath.Join(sess.section.ArchiveDir, path)
+				}
 				lfilesrc := lfilepath
 				mode := lfinfo.Mode()
 
@@ -125,6 +130,26 @@ func (c *PushCommand) Run(args []string) int {
 
 					log.Printf("push directory %s\n", rfile)
 					sess.MkDirRemote(rfile, mode)
+					if err != nil {
+						log.Printf("push error creating remote directory : %s, %s\n", rfile, err)
+						c.bad = append(c.bad, FileError{path: path, err: err})
+						continue
+					}
+
+					if archive {
+						if _, err := os.Stat(archivepath); err != nil {
+							if os.IsNotExist(err) {
+								// dir does not exist
+								err = os.Mkdir(archivepath, mode)
+								if err != nil {
+									log.Printf("error creating archive directory path : %s, %s\n", archivepath, err)
+								}
+								if debug {
+									log.Printf("DEBUG created archive dir %s\n", archivepath)
+								}
+							}
+						}
+					}
 
 				} else {
 
@@ -148,8 +173,10 @@ func (c *PushCommand) Run(args []string) int {
 						// bail??
 						continue
 					}
-					if clean {
+					if archive {
 
+					}
+					if clean {
 						if sess.section.Encrypt {
 							err := os.Remove(lfilepath)
 							if err != nil {
@@ -183,6 +210,7 @@ func (c *PushCommand) Run(args []string) int {
 			for i := range c.bad {
 				log.Printf("not pushed: %s %s\n", c.bad[i].path, c.bad[i].err.Error())
 			}
+			return 1
 		}
 
 	} else {
