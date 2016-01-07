@@ -11,11 +11,13 @@ import (
 )
 
 var (
-	config     Config
-	debug      bool = false
-	clean      bool = false
-	archive    bool = false
-	fileregexp *regexp.Regexp
+	config      Config
+	debug       bool   = false
+	stable      bool   = false
+	stableblock uint64 = 0
+	clean       bool   = false
+	archive     bool   = false
+	fileregexp  *regexp.Regexp
 )
 
 type Config struct {
@@ -28,6 +30,8 @@ type Config struct {
 		ProxyPort         uint32
 		InsecureCiphers   bool
 		Debug             bool
+		Stable            bool
+		StableDuration    uint64
 		Decrypt           bool
 		Encrypt           bool
 		Clean             bool
@@ -59,6 +63,8 @@ type Section struct {
 	ProxyPort         uint32
 	InsecureCiphers   bool
 	Debug             bool
+	Stable            bool
+	StableDuration    uint64
 	Decrypt           bool
 	Encrypt           bool
 	Clean             bool
@@ -96,6 +102,13 @@ func InitialiseConfig(file string) (*Section, error) {
 	}
 	if config.Defaults.Debug {
 		debug = config.Defaults.Debug
+	}
+	if config.Defaults.Stable {
+		stable = config.Defaults.Stable
+	}
+	if config.Defaults.StableDuration == 0 {
+		config.Defaults.StableDuration = 60
+		stableblock = 60
 	}
 	if config.Defaults.Clean {
 		clean = config.Defaults.Clean
@@ -181,6 +194,16 @@ func InitialiseConfig(file string) (*Section, error) {
 	if config.Profile[profile].Debug {
 		debug = config.Profile[profile].Debug
 	}
+	if config.Profile[profile].Stable {
+		stable = config.Profile[profile].Stable
+	}
+	if config.Profile[profile].StableDuration == 0 {
+		sectn.StableDuration = config.Defaults.StableDuration
+		stableblock = config.Defaults.StableDuration
+	} else {
+		sectn.StableDuration = config.Profile[profile].StableDuration
+		stableblock = config.Profile[profile].StableDuration
+	}
 	if config.Profile[profile].Clean {
 		clean = config.Profile[profile].Clean
 	}
@@ -199,11 +222,11 @@ func InitialiseConfig(file string) (*Section, error) {
 		}
 	}
 
-	if config.Defaults.InsecureCiphers {
-		sectn.InsecureCiphers = config.Defaults.InsecureCiphers
-	}
 	if config.Profile[profile].InsecureCiphers {
 		sectn.InsecureCiphers = config.Profile[profile].InsecureCiphers
+	}
+	if config.Defaults.InsecureCiphers {
+		sectn.InsecureCiphers = config.Defaults.InsecureCiphers
 	}
 
 	// PGP settings

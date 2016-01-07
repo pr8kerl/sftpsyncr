@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type PullCommand struct {
@@ -66,7 +67,7 @@ func (c *PullCommand) Run(args []string) int {
 	// build remote file list
 	err = sess.WalkRemote()
 	if err != nil {
-		log.Printf("unable to walk remote server: %v", err)
+		log.Printf("unable to walk remote server: %v\n", err)
 		return 95
 	}
 
@@ -75,6 +76,13 @@ func (c *PullCommand) Run(args []string) int {
 
 		// build local file list
 		filepath.Walk(sess.section.LocalDir, sess.WalkLocal)
+
+		// if stable check enabled, wait StableDuration seconds
+		if stable {
+			log.Printf("stable check enabled - pausing for %d to confirm remote file size stability\n", stableblock)
+			time.Sleep(time.Duration(stableblock) * time.Second)
+			log.Printf("stable check pause complete.\n")
+		}
 
 		// for each remote file, if it isn't on local, pull
 		for path := range sess.RemoteFiles {
@@ -110,9 +118,11 @@ func (c *PullCommand) Run(args []string) int {
 				rfilepath := filepath.Join(sess.section.RemoteDir, path)
 				// prepend the local dir to the local file path
 				lfilepath := filepath.Join(sess.section.LocalDir, path)
+
 				if archive {
 					archivepath = filepath.Join(sess.section.ArchiveDir, path)
 				}
+
 				rmode := rfinfo.Mode()
 				if rfinfo.IsDir() {
 					log.Printf("pull directory %s\n", rfilepath)
@@ -144,6 +154,17 @@ func (c *PullCommand) Run(args []string) int {
 						}
 					}
 				} else {
+
+					if stable {
+						csize, err := sess.GetRemoteSize(rfilepath)
+						if err != nil {
+							log.Printf("error checking remote file size, skipping : %s\n", err)
+						}
+						if csize != rsize {
+							log.Printf("file %s size is not stable, skipping. current size: %d bytes, initial size: %d\n", path, csize, rsize)
+							continue
+						}
+					}
 
 					err := sess.Pull(rfilepath, lfilepath, rsize, rmode)
 					if err != nil {

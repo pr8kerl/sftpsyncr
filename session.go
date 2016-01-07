@@ -28,10 +28,10 @@ type FileError struct {
 type SftpSession struct {
 	LocalFiles    map[string]os.FileInfo
 	RemoteFiles   map[string]os.FileInfo
+	StableFiles   map[string]os.FileInfo
 	connection    *ssh.Client
 	client        *sftp.Client
 	section       *Section
-	insecure      bool
 	sshConfig     ssh.ClientConfig
 	sshkey        ssh.Signer
 	fileregexp    *regexp.Regexp
@@ -44,8 +44,8 @@ func NewSftpSession(cfg *Section) (*SftpSession, error) {
 	s := SftpSession{
 		LocalFiles:  make(map[string]os.FileInfo),
 		RemoteFiles: make(map[string]os.FileInfo),
+		StableFiles: make(map[string]os.FileInfo),
 		section:     cfg,
-		insecure:    false,
 		connection:  nil,
 		client:      nil,
 	}
@@ -174,8 +174,11 @@ func (s *SftpSession) initSftpSession() error {
 
 	// configure ssh
 	sshCommonConfig := ssh.Config{}
-	if s.insecure {
+	if s.section.InsecureCiphers {
 		sshCommonConfig = ssh.Config{Ciphers: ssh.AllSupportedCiphers()}
+		if debug {
+			log.Printf("DEBUG insecureciphers is set : using weaker ciphers.\n")
+		}
 	}
 	sshCommonConfig.SetDefaults()
 
@@ -337,6 +340,24 @@ func (s *SftpSession) WalkRemote() error {
 	}
 
 	return nil
+
+}
+
+func (s *SftpSession) GetRemoteSize(rpath string) (int64, error) {
+
+	if s.client == nil {
+		err := s.Connect()
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	rstat, err := s.client.Stat(rpath)
+	if err != nil {
+		return 0, err
+	}
+
+	return rstat.Size(), nil
 
 }
 
