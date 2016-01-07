@@ -28,7 +28,7 @@ type FileError struct {
 type SftpSession struct {
 	LocalFiles    map[string]os.FileInfo
 	RemoteFiles   map[string]os.FileInfo
-	StableFiles   map[string]os.FileInfo
+	GetFiles      map[string]os.FileInfo
 	connection    *ssh.Client
 	client        *sftp.Client
 	section       *Section
@@ -44,7 +44,7 @@ func NewSftpSession(cfg *Section) (*SftpSession, error) {
 	s := SftpSession{
 		LocalFiles:  make(map[string]os.FileInfo),
 		RemoteFiles: make(map[string]os.FileInfo),
-		StableFiles: make(map[string]os.FileInfo),
+		GetFiles:    make(map[string]os.FileInfo),
 		section:     cfg,
 		connection:  nil,
 		client:      nil,

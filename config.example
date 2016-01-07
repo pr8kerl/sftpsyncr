@@ -1,21 +1,27 @@
 ; config file
 [defaults]
 port = 22
+; set a regular expression to match what files to get
 ;matchregexp = .*
+; set a logfile - stdout otherwise
 ;logfile = /tmp/sftpsyncr.log
 lockdir = /tmp/sftpsyncr.lock
 ; insecureciphers - enable use of weaker cbc ciphers
 ;insecureciphers = false
+; some extra logging
 ;debug = true
+; use an http connect proxy - no auth please
 ;proxyserver = 192.168.0.100
 ;proxyport = 8080
 ;publickeyring = "~/.gnupg/pubring.gpg"
 ;privatekeyring = "~/.gnupg/secring.gpg"
+; enable decryption of files which have the decryptsuffix
 ;decrypt = false
 ; hex id of public key - the private key of this keypair is used to decrypt
 ;decryptkeyid = 3D0A8209
 ;decryptpassphrase = passphrase
 ;decryptsuffix = ".pgp"
+; enable encryption of all files sent
 ;encrypt = false
 ; hex id of public key used to encrypt files
 ;encryptkeyid = 3D0A8209
@@ -26,11 +32,15 @@ clean = false
 archive = false
 ; archive location
 ;archivedir = /tmp/archive
+; enable a check for file stability - if file size has changed within stableduration seconds - skip it
+;stablesize = false
+;stableduration = 60
 
 # config file
 [profile "transfername"]
 server = localhost
 username = luser
+; set a password or a key or don't set either and use an ssh-agent
 ;password = letmein
 key = /home/luser/.ssh/id_rsa
 ;port = 22
@@ -47,19 +57,16 @@ insecureciphers = true
 ;publickeyring = "~/.gnupg/pubring.gpg"
 ;privatekeyring = "~/.gnupg/secring.gpg"
 decrypt = true
-; hex id of public key - the private key of this keypair is used to decrypt
 decryptkeyid = 3D0A8209
 decryptpassphrase = passphrase
 decryptsuffix = ".gpg"
 ;encrypt = false
-; hex id of public key used to encrypt files
 ;encryptkeyid = 3D0A8209
 ;encryptsuffix = ".gpg"
 debug = true
-; clean - remove src file after successful push or successful pull
 clean = false
-; archive - save a copy of the original file before pushing or after pulling
 archive = true
-; archive location
 archivedir = /tmp/archive
+stablesize = true
+stableduration = 120
 

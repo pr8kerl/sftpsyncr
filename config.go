@@ -30,7 +30,7 @@ type Config struct {
 		ProxyPort         uint32
 		InsecureCiphers   bool
 		Debug             bool
-		Stable            bool
+		StableSize        bool
 		StableDuration    uint64
 		Decrypt           bool
 		Encrypt           bool
@@ -63,7 +63,7 @@ type Section struct {
 	ProxyPort         uint32
 	InsecureCiphers   bool
 	Debug             bool
-	Stable            bool
+	StableSize        bool
 	StableDuration    uint64
 	Decrypt           bool
 	Encrypt           bool
@@ -103,8 +103,8 @@ func InitialiseConfig(file string) (*Section, error) {
 	if config.Defaults.Debug {
 		debug = config.Defaults.Debug
 	}
-	if config.Defaults.Stable {
-		stable = config.Defaults.Stable
+	if config.Defaults.StableSize {
+		stable = config.Defaults.StableSize
 	}
 	if config.Defaults.StableDuration == 0 {
 		config.Defaults.StableDuration = 60
@@ -194,8 +194,8 @@ func InitialiseConfig(file string) (*Section, error) {
 	if config.Profile[profile].Debug {
 		debug = config.Profile[profile].Debug
 	}
-	if config.Profile[profile].Stable {
-		stable = config.Profile[profile].Stable
+	if config.Profile[profile].StableSize {
+		stable = config.Profile[profile].StableSize
 	}
 	if config.Profile[profile].StableDuration == 0 {
 		sectn.StableDuration = config.Defaults.StableDuration

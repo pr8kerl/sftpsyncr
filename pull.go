@@ -74,25 +74,65 @@ func (c *PullCommand) Run(args []string) int {
 	// if file list connect
 	if len(sess.RemoteFiles) > 0 {
 
+		var archivepath string
+
 		// build local file list
 		filepath.Walk(sess.section.LocalDir, sess.WalkLocal)
 
-		// if stable check enabled, wait StableDuration seconds
-		if stable {
-			log.Printf("stable check enabled - pausing for %d to confirm remote file size stability\n", stableblock)
-			time.Sleep(time.Duration(stableblock) * time.Second)
-			log.Printf("stable check pause complete.\n")
-		}
-
-		// for each remote file, if it isn't on local, pull
+		// for each remote file, do a pre-check, create directory structure
+		// save files not local to GetFiles map
 		for path := range sess.RemoteFiles {
 
 			var lsize, rsize int64 = 0, 0
-			var archivepath string
 			lfinfo, lexists := sess.LocalFiles[path]
 
 			rfinfo := sess.RemoteFiles[path]
 			rsize = rfinfo.Size()
+
+			rmode := rfinfo.Mode()
+			if rfinfo.IsDir() {
+
+				// prepend the remote dir to the remote file path
+				rfilepath := filepath.Join(sess.section.RemoteDir, path)
+				// prepend the local dir to the local file path
+				lfilepath := filepath.Join(sess.section.LocalDir, path)
+
+				log.Printf("pull directory %s\n", rfilepath)
+				// test for local directory
+				if _, err := os.Stat(lfilepath); err != nil {
+					if os.IsNotExist(err) {
+						// dir does not exist
+						err = os.Mkdir(lfilepath, rmode)
+						if err != nil {
+							log.Printf("error creating local directory path : %s, %s\n", lfilepath, err)
+						}
+						if debug {
+							log.Printf("DEBUG created local dir %s\n", lfilepath)
+						}
+					}
+				}
+
+				if archive {
+
+					archivepath = filepath.Join(sess.section.ArchiveDir, path)
+					if _, err := os.Stat(archivepath); err != nil {
+						if os.IsNotExist(err) {
+							// dir does not exist
+							err = os.Mkdir(archivepath, rmode)
+							if err != nil {
+								log.Printf("error creating archive directory path : %s, %s\n", archivepath, err)
+							}
+							if debug {
+								log.Printf("DEBUG created archive dir %s\n", archivepath)
+							}
+						}
+					}
+				}
+
+				// enough for a directory
+				continue
+
+			}
 
 			if debug {
 				log.Printf("DEBUG processing remote path : %s, %d\n", path, rsize)
@@ -113,119 +153,123 @@ func (c *PullCommand) Run(args []string) int {
 
 			} else {
 
-				// if it isn't on local and it's a different size, pull it
-				// prepend the remote dir to the remote file path
-				rfilepath := filepath.Join(sess.section.RemoteDir, path)
-				// prepend the local dir to the local file path
-				lfilepath := filepath.Join(sess.section.LocalDir, path)
+				sess.GetFiles[path] = rfinfo
+			}
 
-				if archive {
-					archivepath = filepath.Join(sess.section.ArchiveDir, path)
-				}
+		}
 
-				rmode := rfinfo.Mode()
-				if rfinfo.IsDir() {
-					log.Printf("pull directory %s\n", rfilepath)
-					// test for local directory
-					if _, err := os.Stat(lfilepath); err != nil {
-						if os.IsNotExist(err) {
-							// dir does not exist
-							err = os.Mkdir(lfilepath, rmode)
-							if err != nil {
-								log.Printf("error creating local directory path : %s, %s\n", lfilepath, err)
-							}
-							if debug {
-								log.Printf("DEBUG created dir %s\n", lfilepath)
-							}
-						}
-					}
-					if archive {
-						if _, err := os.Stat(archivepath); err != nil {
-							if os.IsNotExist(err) {
-								// dir does not exist
-								err = os.Mkdir(archivepath, rmode)
-								if err != nil {
-									log.Printf("error creating archive directory path : %s, %s\n", archivepath, err)
-								}
-								if debug {
-									log.Printf("DEBUG created archive dir %s\n", archivepath)
-								}
-							}
-						}
-					}
-				} else {
+		pcount := len(sess.GetFiles)
+		if pcount > 0 {
+			log.Printf("found %d remote files eligible for download\n", pcount)
+		} else {
+			log.Printf("no remote files eligible for download.\n")
+			return 0
+		}
 
-					if stable {
-						csize, err := sess.GetRemoteSize(rfilepath)
+		// if stable check enabled, wait StableDuration seconds
+		if stable {
+			log.Printf("stable check enabled - pausing for %d to confirm remote file size stability\n", stableblock)
+			time.Sleep(time.Duration(stableblock) * time.Second)
+			log.Printf("stable check pause complete.\n")
+		}
+
+		for path := range sess.GetFiles {
+
+			rfinfo := sess.GetFiles[path]
+			rsize := rfinfo.Size()
+			rmode := rfinfo.Mode()
+
+			// prepend the remote dir to the remote file path
+			rfilepath := filepath.Join(sess.section.RemoteDir, path)
+			// prepend the local dir to the local file path
+			lfilepath := filepath.Join(sess.section.LocalDir, path)
+			if archive {
+				archivepath = filepath.Join(sess.section.ArchiveDir, path)
+			}
+
+			if archive {
+				if _, err := os.Stat(archivepath); err != nil {
+					if os.IsNotExist(err) {
+						// dir does not exist
+						err = os.Mkdir(archivepath, rmode)
 						if err != nil {
-							log.Printf("error checking remote file size, skipping : %s\n", err)
-						}
-						if csize != rsize {
-							log.Printf("file %s size is not stable, skipping. current size: %d bytes, initial size: %d\n", path, csize, rsize)
-							continue
-						}
-					}
-
-					err := sess.Pull(rfilepath, lfilepath, rsize, rmode)
-					if err != nil {
-						log.Printf("error pulling file : %s %s\n", path, err)
-						c.bad = append(c.bad, FileError{path: path, err: err})
-						// bail??
-						continue
-					}
-					if archive {
-						// copy lfilepath to archivepath
-						err := sess.CopyFile(lfilepath, archivepath)
-						if err != nil {
-							log.Printf("error archiving file : %s %s\n", path, err)
-							c.bad = append(c.bad, FileError{path: path, err: err})
-							continue
+							log.Printf("error creating archive directory path : %s, %s\n", archivepath, err)
 						}
 						if debug {
-							log.Printf("DEBUG archive file %s\n", archivepath)
+							log.Printf("DEBUG created archive dir %s\n", archivepath)
 						}
 					}
-					if sess.section.Decrypt {
-						if strings.HasSuffix(lfilepath, sess.section.DecryptSuffix) {
-							newfile, err := sess.DecryptFile(lfilepath)
-							if err != nil {
-								log.Printf("pull error decrypting file : %s\n", err)
-								c.bad = append(c.bad, FileError{path: path, err: err})
-								continue
-							}
-							log.Printf("pull decrypted file %s to %s\n", lfilepath, newfile)
-						}
-
-					}
-					if clean {
-						err := sess.RemoveRemote(rfilepath)
-						if err != nil {
-							log.Printf("error removing remote file : %s %s\n", path, err)
-							c.bad = append(c.bad, FileError{path: path, err: err})
-							continue
-						}
-					}
-					c.good = append(c.good, path)
 				}
 			}
-		}
 
-		// summarise results
-		if len(c.good) > 0 {
-			log.Printf("%d files successfully pulled\n", len(c.good))
-			for i := range c.good {
-				log.Printf("pulled: %s\n", c.good[i])
+			if stable {
+				csize, err := sess.GetRemoteSize(rfilepath)
+				if err != nil {
+					log.Printf("error checking remote file size, skipping : %s\n", err)
+				}
+				if csize != rsize {
+					log.Printf("file %s size is not stable, skipping. current size: %d bytes, initial size: %d\n", path, csize, rsize)
+					continue
+				}
 			}
-		}
-		if len(c.bad) > 0 {
-			log.Printf("%d files had errors\n", len(c.bad))
-			for i := range c.bad {
-				log.Printf("not pulled: %s %s\n", c.bad[i].path, c.bad[i].err.Error())
+
+			err := sess.Pull(rfilepath, lfilepath, rsize, rmode)
+			if err != nil {
+				log.Printf("error pulling file : %s %s\n", path, err)
+				c.bad = append(c.bad, FileError{path: path, err: err})
+				// bail??
+				continue
 			}
-			return 1
+
+			if archive {
+				// copy lfilepath to archivepath
+				err := sess.CopyFile(lfilepath, archivepath)
+				if err != nil {
+					log.Printf("error archiving file : %s %s\n", path, err)
+					c.bad = append(c.bad, FileError{path: path, err: err})
+					continue
+				}
+				if debug {
+					log.Printf("DEBUG archive file %s\n", archivepath)
+				}
+			}
+			if sess.section.Decrypt {
+				if strings.HasSuffix(lfilepath, sess.section.DecryptSuffix) {
+					newfile, err := sess.DecryptFile(lfilepath)
+					if err != nil {
+						log.Printf("pull error decrypting file : %s\n", err)
+						c.bad = append(c.bad, FileError{path: path, err: err})
+						continue
+					}
+					log.Printf("pull decrypted file %s to %s\n", lfilepath, newfile)
+				}
+
+			}
+			if clean {
+				err := sess.RemoveRemote(rfilepath)
+				if err != nil {
+					log.Printf("error removing remote file : %s %s\n", path, err)
+					c.bad = append(c.bad, FileError{path: path, err: err})
+					continue
+				}
+			}
+			c.good = append(c.good, path)
 		}
-	} else {
-		log.Println("nothing to pull")
+	}
+
+	// summarise results
+	if len(c.good) > 0 {
+		log.Printf("%d files successfully pulled\n", len(c.good))
+		for i := range c.good {
+			log.Printf("pulled: %s\n", c.good[i])
+		}
+	}
+	if len(c.bad) > 0 {
+		log.Printf("%d files had errors\n", len(c.bad))
+		for i := range c.bad {
+			log.Printf("not pulled: %s %s\n", c.bad[i].path, c.bad[i].err.Error())
+		}
+		return 1
 	}
 
 	return 0
