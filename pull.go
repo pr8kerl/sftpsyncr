@@ -183,24 +183,6 @@ func (c *PullCommand) Run(args []string) int {
 			rfilepath := filepath.Join(sess.section.RemoteDir, path)
 			// prepend the local dir to the local file path
 			lfilepath := filepath.Join(sess.section.LocalDir, path)
-			if archive {
-				archivepath = filepath.Join(sess.section.ArchiveDir, path)
-			}
-
-			if archive {
-				if _, err := os.Stat(archivepath); err != nil {
-					if os.IsNotExist(err) {
-						// dir does not exist
-						err = os.Mkdir(archivepath, rmode)
-						if err != nil {
-							log.Printf("error creating archive directory path : %s, %s\n", archivepath, err)
-						}
-						if debug {
-							log.Printf("DEBUG created archive dir %s\n", archivepath)
-						}
-					}
-				}
-			}
 
 			if stable {
 				csize, err := sess.GetRemoteSize(rfilepath)
@@ -222,6 +204,7 @@ func (c *PullCommand) Run(args []string) int {
 			}
 
 			if archive {
+				archivepath = filepath.Join(sess.section.ArchiveDir, path)
 				// copy lfilepath to archivepath
 				err := sess.CopyFile(lfilepath, archivepath)
 				if err != nil {
