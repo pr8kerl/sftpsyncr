@@ -9,6 +9,7 @@ import (
 	"github.com/ScriptRock/crypto/ssh"
 	"github.com/ScriptRock/crypto/ssh/agent"
 	"golang.org/x/crypto/openpgp"
+	"gopkg.in/gomail.v2"
 	"io"
 	"io/ioutil"
 	"log"
@@ -588,4 +589,55 @@ func (s *SftpSession) CopyFile(src string, dst string) (err error) {
 	}
 	err = out.Sync()
 	return err
+}
+
+// called from main to allow session to check whether an email is worthy or not
+func (s *SftpSession) TriggerEmail(e error) error {
+
+	log.Printf("trigger email\n")
+	if !s.section.EmailSuccess && !s.section.EmailFailure {
+		log.Printf("trigger no email\n")
+		return nil
+	}
+	if e != nil && !s.section.EmailFailure {
+		log.Printf("trigger email on failure\n")
+		return nil
+	}
+	if e == nil && !s.section.EmailSuccess {
+		log.Printf("trigger email on success\n")
+		return nil
+	}
+
+	if s.section.LogFile == "" {
+		// do nothing if no log is in use
+		return nil
+	}
+	log.Printf("trigger email coming\n")
+
+	var body []byte
+	body, err := ioutil.ReadFile(s.section.LogFile)
+	if err != nil {
+		return err
+	}
+
+	m := gomail.NewMessage()
+	var subject string
+	if e != nil {
+		subject = "sftpsyncr " + profile + " failure"
+	} else {
+		subject = "sftpsyncr " + profile + " success"
+	}
+	m.SetHeader("From", s.section.EmailFrom)
+	m.SetHeader("To", s.section.EmailTo)
+	m.SetHeader("Subject", subject)
+	m.SetBody("text/plain", string(body))
+
+	d := gomail.Dialer{Host: s.section.EmailHost, Port: s.section.EmailPort}
+	err = d.DialAndSend(m)
+	if err != nil {
+		log.Printf("email send failed: %s\n", err)
+		return err
+	}
+	return nil
+
 }

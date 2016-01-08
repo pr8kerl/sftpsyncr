@@ -42,10 +42,11 @@ func (c *PullCommand) Run(args []string) int {
 
 	// flags
 	var cfgfile string
+	var err error
 	cmdFlags := flag.NewFlagSet("pull", flag.ContinueOnError)
 	cmdFlags.StringVar(&profile, "profile", "default", "sftp session profile to use")
 	cmdFlags.StringVar(&cfgfile, "config", "config.ini", "config file in git config ini format")
-	if err := cmdFlags.Parse(args); err != nil {
+	if err = cmdFlags.Parse(args); err != nil {
 		return 1
 	}
 	cmdFlags.Usage = func() { c.Ui.Output(c.Help()) }
@@ -63,6 +64,9 @@ func (c *PullCommand) Run(args []string) int {
 		return 1
 	}
 	defer sess.Close()
+
+	// run email check at end
+	defer sess.TriggerEmail(err)
 
 	// build remote file list
 	err = sess.WalkRemote()
@@ -195,7 +199,7 @@ func (c *PullCommand) Run(args []string) int {
 				}
 			}
 
-			err := sess.Pull(rfilepath, lfilepath, rsize, rmode)
+			err = sess.Pull(rfilepath, lfilepath, rsize, rmode)
 			if err != nil {
 				log.Printf("error pulling file : %s %s\n", path, err)
 				c.bad = append(c.bad, FileError{path: path, err: err})
@@ -206,7 +210,7 @@ func (c *PullCommand) Run(args []string) int {
 			if archive {
 				archivepath = filepath.Join(sess.section.ArchiveDir, path)
 				// copy lfilepath to archivepath
-				err := sess.CopyFile(lfilepath, archivepath)
+				err = sess.CopyFile(lfilepath, archivepath)
 				if err != nil {
 					log.Printf("error archiving file : %s %s\n", path, err)
 					c.bad = append(c.bad, FileError{path: path, err: err})
@@ -229,7 +233,7 @@ func (c *PullCommand) Run(args []string) int {
 
 			}
 			if clean {
-				err := sess.RemoveRemote(rfilepath)
+				err = sess.RemoveRemote(rfilepath)
 				if err != nil {
 					log.Printf("error removing remote file : %s %s\n", path, err)
 					c.bad = append(c.bad, FileError{path: path, err: err})

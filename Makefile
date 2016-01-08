@@ -2,7 +2,7 @@ GOROOT := /usr/local/go
 GOPATH := $(shell pwd)
 GOBIN  := $(GOPATH)/bin
 PATH   := $(GOROOT)/bin:$(PATH)
-DEPS   := github.com/mitchellh/cli github.com/ScriptRock/sftp github.com/ScriptRock/crypto/ssh github.com/ScriptRock/crypto/ssh/agent gopkg.in/gcfg.v1 golang.org/x/crypto/openpgp
+DEPS   := github.com/mitchellh/cli github.com/ScriptRock/sftp github.com/ScriptRock/crypto/ssh github.com/ScriptRock/crypto/ssh/agent gopkg.in/gcfg.v1 golang.org/x/crypto/openpgp gopkg.in/gomail.v2
 GO=$(GOROOT)/bin/go
 
 LDFLAGS := -ldflags "-X main.commit=`git rev-parse HEAD`" 

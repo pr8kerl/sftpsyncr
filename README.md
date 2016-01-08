@@ -2,17 +2,26 @@
 
 An sftp cmd line client.
 Allows syncing of entire directories to or from a remote sftp server.
-Has basic http connect proxy support.
+
+### Features
+
+* optionally remove files on remote side after transfer
+* optionally archive/copy transferred files to a local archive directory
+* openpgp encryption and decryption of files
+* http connect proxy support (no auth)
+* optional alert email on failure or success 
+* optionally check file size after a period to ensure size is stable before transfer
 
 Usable.
 
 # Setup
 
 * clone the repo
+
 * pull in golang dependencies
 
 ```
-make update
+make deps
 ```
 
 * build the binary
@@ -95,6 +104,7 @@ ians@module:~/work/sftpsyncr$
 * ~~optional encrypt/decrypt of files~~
 * ~~remove files after transfer~~
 * ~~archive files after transfer~~
+* ~~email logfile after success and/or failure~~
 * run an optional custom script after transfer session
 
 ## Notes

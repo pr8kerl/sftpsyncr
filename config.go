@@ -44,6 +44,12 @@ type Config struct {
 		DecryptPassphrase string
 		EncryptSuffix     string
 		DecryptSuffix     string
+		EmailFailure      bool
+		EmailSuccess      bool
+		EmailTo           string
+		EmailFrom         string
+		EmailHost         string
+		EmailPort         int
 	}
 	Profile map[string]*Section
 }
@@ -77,6 +83,12 @@ type Section struct {
 	EncryptSuffix     string
 	DecryptSuffix     string
 	DecryptPassphrase string
+	EmailFailure      bool
+	EmailSuccess      bool
+	EmailTo           string
+	EmailFrom         string
+	EmailHost         string
+	EmailPort         int
 }
 
 func InitialiseConfig(file string) (*Section, error) {
@@ -227,6 +239,50 @@ func InitialiseConfig(file string) (*Section, error) {
 	}
 	if config.Defaults.InsecureCiphers {
 		sectn.InsecureCiphers = config.Defaults.InsecureCiphers
+	}
+	if config.Defaults.EmailHost == "" {
+		sectn.EmailHost = "localhost"
+	}
+	if config.Defaults.EmailPort == 0 {
+		sectn.EmailPort = 25
+	}
+	if config.Profile[profile].EmailHost != "" {
+		sectn.EmailHost = config.Profile[profile].EmailHost
+	}
+	if config.Profile[profile].EmailPort != 0 {
+		sectn.EmailPort = config.Profile[profile].EmailPort
+	}
+	if config.Defaults.EmailSuccess {
+		sectn.EmailSuccess = config.Defaults.EmailSuccess
+	}
+	if config.Profile[profile].EmailSuccess {
+		sectn.EmailSuccess = config.Profile[profile].EmailSuccess
+	}
+	if config.Defaults.EmailFailure {
+		sectn.EmailFailure = config.Defaults.EmailFailure
+	}
+	if config.Profile[profile].EmailFailure {
+		sectn.EmailFailure = config.Profile[profile].EmailFailure
+	}
+	if sectn.EmailSuccess || sectn.EmailFailure {
+		if config.Defaults.EmailTo != "" {
+			sectn.EmailTo = config.Defaults.EmailTo
+		}
+		if config.Defaults.EmailFrom != "" {
+			sectn.EmailFrom = config.Defaults.EmailFrom
+		}
+		if config.Profile[profile].EmailTo != "" {
+			sectn.EmailTo = config.Profile[profile].EmailTo
+		}
+		if config.Profile[profile].EmailFrom != "" {
+			sectn.EmailFrom = config.Profile[profile].EmailFrom
+		}
+		if sectn.EmailTo == "" {
+			return nil, errors.New("missing emailto configurable.")
+		}
+		if sectn.EmailFrom == "" {
+			return nil, errors.New("missing emailfrom configurable.")
+		}
 	}
 
 	// PGP settings
