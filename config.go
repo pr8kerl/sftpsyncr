@@ -43,6 +43,8 @@ type Config struct {
 		DecryptKeyId      []string
 		DecryptPassphrase []string
 		DecryptRegExp     string
+		CleanDecrypted    bool
+		Reencrypt         bool
 		EmailFailure      bool
 		EmailSuccess      bool
 		EmailTo           string
@@ -83,6 +85,8 @@ type Section struct {
 	DecryptKeyId      []string
 	DecryptPassphrase []string
 	DecryptRegExp     string
+	CleanDecrypted    bool
+	Reencrypt         bool
 	EmailFailure      bool
 	EmailSuccess      bool
 	EmailTo           string
@@ -331,6 +335,19 @@ func InitialiseConfig(file string) (*Section, error) {
 	}
 	if sectn.EncryptSuffix == "" {
 		sectn.EncryptSuffix = ".pgp"
+	}
+
+	if config.Defaults.CleanDecrypted {
+		sectn.CleanDecrypted = config.Defaults.CleanDecrypted
+	}
+	if config.Profile[profile].CleanDecrypted {
+		sectn.CleanDecrypted = config.Profile[profile].CleanDecrypted
+	}
+	if config.Defaults.Reencrypt {
+		sectn.Reencrypt = config.Defaults.Reencrypt
+	}
+	if config.Profile[profile].Reencrypt {
+		sectn.Reencrypt = config.Profile[profile].Reencrypt
 	}
 
 	if len(config.Profile[profile].DecryptPassphrase) > 0 && len(sectn.DecryptPassphrase) == 0 {

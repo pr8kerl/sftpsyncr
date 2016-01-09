@@ -270,8 +270,6 @@ func (s *SftpSession) initSftpSession() error {
 		if dcryptkidlen != dcryptpplen {
 			return fmt.Errorf("you must provide the same number of decryption key ids and decryption key passphrases.\ncheck your config file.\n")
 		}
-		log.Printf("dcrypt key id len: %d\n", dcryptkidlen)
-		log.Printf("dcrypt passphrase len: %d\n", dcryptpplen)
 
 		for i := range s.section.DecryptKeyId {
 
@@ -623,7 +621,6 @@ func (s *SftpSession) CopyFile(src string, dst string) (err error) {
 // called from main to allow session to check whether an email is worthy or not
 func (s *SftpSession) TriggerEmail(e error) error {
 
-	log.Printf("trigger email\n")
 	if !s.section.EmailSuccess && !s.section.EmailFailure {
 		log.Printf("trigger no email\n")
 		return nil
@@ -639,6 +636,7 @@ func (s *SftpSession) TriggerEmail(e error) error {
 
 	if s.section.LogFile == "" {
 		// do nothing if no log is in use
+		log.Printf("no logfile so no email\n")
 		return nil
 	}
 	log.Printf("trigger email coming\n")

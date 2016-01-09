@@ -219,17 +219,48 @@ func (c *PullCommand) Run(args []string) int {
 					log.Printf("DEBUG archive file %s\n", archivepath)
 				}
 			}
+			var dcrypted string
 			if sess.section.Decrypt {
 
 				if matched := sess.Dcryptregexp.MatchString(path); matched {
-					newfile, err := sess.DecryptFile(lfilepath)
+					dcrypted, err = sess.DecryptFile(lfilepath)
 					if err != nil {
 						log.Printf("pull error decrypting file : %s\n", err)
 						c.bad = append(c.bad, FileError{path: path, err: err})
 						continue
 					}
-					log.Printf("pull decrypted file %s to %s\n", lfilepath, newfile)
+					log.Printf("pull decrypted file %s to %s\n", lfilepath, dcrypted)
+
+					if sess.section.CleanDecrypted {
+						// clean up the original encrypted file
+						err = os.Remove(lfilepath)
+						if err != nil {
+							log.Printf("clean error removing : %s, %s", lfilepath, err)
+							c.bad = append(c.bad, FileError{path: path, err: err})
+						}
+						if debug {
+							log.Printf("cleaned encrypted file: %s", lfilepath)
+						}
+					}
 				}
+
+			}
+
+			if sess.section.Reencrypt {
+				var file string
+				if sess.section.Decrypt {
+					file = dcrypted
+				} else {
+					file = lfilepath
+				}
+
+				efile, _, err := sess.EncryptFile(file)
+				if err != nil {
+					log.Printf("error re-encrypting file : %s, %s\n", file, err)
+					c.bad = append(c.bad, FileError{path: path, err: err})
+					continue
+				}
+				log.Printf("re-encrypted file: %s\n", efile)
 
 			}
 			if clean {
