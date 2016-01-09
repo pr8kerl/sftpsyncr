@@ -51,6 +51,43 @@ Files can be encrypted prior to transfer, and decrypted after transfer. Use the 
 
 An HTTP connect proxy can also be used (such as squid or apache). No proxy authentication methods are supported. 
 
+A single encryption key can be defined to encrypt ALL files to be transferred.
+Multiple decryption keys keys can be used to decrypt files with a specific suffix.
+
+## Decryption
+
+You can specify multiple decryption keys and passphrases within a profile. But they MUST be specified in their correct matching order.
+The reason is that the configuration package reads multiple values in to an array. So the passphrase for a key must have the same array index.
+It's easier for me this way - I am lazy. But it works fine if your config is correct.
+
+Example config for multiple decryption keys:
+
+```
+decrypt = true
+decryptsuffix = ".gpg"
+decryptkeyid = 641E9413
+decryptpassphrase = passphrase_for_key_641E9413
+decryptkeyid = 3D0A8209
+decryptpassphrase = passphrase_for_key_3D0A8209
+```
+
+In the above, only files with suffix of .gpg will be decrypted (or attempted to be decrypted).
+The order of key id's and passphrases is critical.
+
+The following config will fail to decrypt files as the passphrases will be set to the wrong key.
+```
+decrypt = true
+decryptsuffix = ".gpg"
+decryptkeyid = 641E9413
+decryptpassphrase = passphrase_for_key_3D0A8209
+decryptkeyid = 3D0A8209
+decryptpassphrase = passphrase_for_key_641E9413
+```
+
+## Encryption
+
+Only a single encryption key (recipient) is supported. You can also specify the suffix for the resulting encrypted file using the *encryptsuffix* configurable. The default encryption suffix is *.pgp*.
+
 # examples
 
 ## command help

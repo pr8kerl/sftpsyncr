@@ -9,7 +9,7 @@ LDFLAGS := -ldflags "-X main.commit=`git rev-parse HEAD`"
 
 all: sftpsyncr
 
-update: $(DEPS)
+deps: $(DEPS)
 	GOPATH=$(GOPATH) go get -u $^
 
 sftpsyncr: main.go config.go session.go push.go pull.go
@@ -19,13 +19,6 @@ sftpsyncr: main.go config.go session.go push.go pull.go
 		GOPATH=$(GOPATH) $(GO) tool vet $^
     # binary
 		GOPATH=$(GOPATH) go build $(LDFLAGS) -o $@ -v $^
-		touch $@
-
-encrypt: encrypt.go
-    # always format code
-		GOPATH=$(GOPATH) $(GO) fmt $^
-    # binary
-		GOPATH=$(GOPATH) $(GO) build -o $@ -v $^
 		touch $@
 
 windows:

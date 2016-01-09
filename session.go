@@ -36,7 +36,9 @@ type SftpSession struct {
 	sshConfig     ssh.ClientConfig
 	sshkey        ssh.Signer
 	fileregexp    *regexp.Regexp
-	decryptEntity *openpgp.Entity
+	Dcryptregexp  *regexp.Regexp
+	Ecryptregexp  *regexp.Regexp
+	decryptEntity []*openpgp.Entity
 	encryptEntity *openpgp.Entity
 	entityList    openpgp.EntityList
 }
@@ -219,6 +221,11 @@ func (s *SftpSession) initSftpSession() error {
 	// check pgp gumpf
 	if s.section.Encrypt {
 
+		s.Ecryptregexp, err = regexp.Compile(s.section.EncryptRegExp)
+		if err != nil {
+			return err
+		}
+
 		// open public keyring
 		kr, err := os.Open(s.section.PublicKeyRing)
 		if err != nil {
@@ -241,6 +248,11 @@ func (s *SftpSession) initSftpSession() error {
 
 	if s.section.Decrypt {
 
+		s.Dcryptregexp, err = regexp.Compile(s.section.DecryptRegExp)
+		if err != nil {
+			return err
+		}
+
 		// Open the private key file
 		kr, err := os.Open(s.section.PrivateKeyRing)
 		if err != nil {
@@ -252,16 +264,32 @@ func (s *SftpSession) initSftpSession() error {
 			return err
 		}
 
-		s.decryptEntity = s.getKeyByIdShortString(s.entityList, s.section.DecryptKeyId)
-		if s.decryptEntity == nil {
-			return fmt.Errorf("cannot find decryption key with ID : %s\n", s.section.DecryptKeyId)
+		dcryptkidlen := len(s.section.DecryptKeyId)
+		dcryptpplen := len(s.section.DecryptPassphrase)
+		s.decryptEntity = make([]*openpgp.Entity, dcryptkidlen, dcryptkidlen)
+		if dcryptkidlen != dcryptpplen {
+			return fmt.Errorf("you must provide the same number of decryption key ids and decryption key passphrases.\ncheck your config file.\n")
 		}
+		log.Printf("dcrypt key id len: %d\n", dcryptkidlen)
+		log.Printf("dcrypt passphrase len: %d\n", dcryptpplen)
 
-		// Get the passphrase and read the private key.
-		passphrase := []byte(s.section.DecryptPassphrase)
-		s.decryptEntity.PrivateKey.Decrypt(passphrase)
-		for _, subkey := range s.decryptEntity.Subkeys {
-			subkey.PrivateKey.Decrypt(passphrase)
+		for i := range s.section.DecryptKeyId {
+
+			s.decryptEntity[i] = s.getKeyByIdShortString(s.entityList, s.section.DecryptKeyId[i])
+			if s.decryptEntity[i] == nil {
+				return fmt.Errorf("cannot find decryption key with ID : %s\n", s.section.DecryptKeyId[i])
+			}
+
+			// Get the passphrase and read the private key.
+			passphrase := []byte(s.section.DecryptPassphrase[i])
+			s.decryptEntity[i].PrivateKey.Decrypt(passphrase)
+			for _, subkey := range s.decryptEntity[i].Subkeys {
+				err := subkey.PrivateKey.Decrypt(passphrase)
+				if err != nil {
+					log.Printf("warning: cannot decrypt key %s, incorrect passphrase?\n", s.section.DecryptKeyId[i])
+				}
+			}
+
 		}
 
 	}
@@ -542,6 +570,7 @@ func (s *SftpSession) DecryptFile(fname string) (string, error) {
 	}
 
 	// Decrypt it with the contents of the private key
+	//msg, err := openpgp.ReadMessage(lr, openpgp.EntityList(s.decryptEntity), nil, nil)
 	msg, err := openpgp.ReadMessage(lr, s.entityList, nil, nil)
 	if err != nil {
 		return "", err

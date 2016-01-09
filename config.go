@@ -7,7 +7,6 @@ import (
 	"gopkg.in/gcfg.v1"
 	"log"
 	"os"
-	"regexp"
 )
 
 var (
@@ -17,7 +16,6 @@ var (
 	stableblock uint64 = 0
 	clean       bool   = false
 	archive     bool   = false
-	fileregexp  *regexp.Regexp
 )
 
 type Config struct {
@@ -32,18 +30,19 @@ type Config struct {
 		Debug             bool
 		StableSize        bool
 		StableDuration    uint64
-		Decrypt           bool
-		Encrypt           bool
 		Clean             bool
 		Archive           bool
 		ArchiveDir        string
 		PublicKeyRing     string
 		PrivateKeyRing    string
+		Encrypt           bool
 		EncryptKeyId      string
-		DecryptKeyId      string
-		DecryptPassphrase string
+		EncryptRegExp     string
 		EncryptSuffix     string
-		DecryptSuffix     string
+		Decrypt           bool
+		DecryptKeyId      []string
+		DecryptPassphrase []string
+		DecryptRegExp     string
 		EmailFailure      bool
 		EmailSuccess      bool
 		EmailTo           string
@@ -71,18 +70,19 @@ type Section struct {
 	Debug             bool
 	StableSize        bool
 	StableDuration    uint64
-	Decrypt           bool
-	Encrypt           bool
 	Clean             bool
 	Archive           bool
 	ArchiveDir        string
 	PublicKeyRing     string
 	PrivateKeyRing    string
+	Encrypt           bool
 	EncryptKeyId      string
-	DecryptKeyId      string
+	EncryptRegExp     string
 	EncryptSuffix     string
-	DecryptSuffix     string
-	DecryptPassphrase string
+	Decrypt           bool
+	DecryptKeyId      []string
+	DecryptPassphrase []string
+	DecryptRegExp     string
 	EmailFailure      bool
 	EmailSuccess      bool
 	EmailTo           string
@@ -301,22 +301,39 @@ func InitialiseConfig(file string) (*Section, error) {
 	if config.Profile[profile].EncryptKeyId != "" && sectn.EncryptKeyId == "" {
 		sectn.EncryptKeyId = config.Profile[profile].EncryptKeyId
 	}
-	if config.Profile[profile].DecryptKeyId != "" && sectn.DecryptKeyId == "" {
+	if len(config.Profile[profile].DecryptKeyId) > 0 && len(sectn.DecryptKeyId) == 0 {
 		sectn.DecryptKeyId = config.Profile[profile].DecryptKeyId
 	}
-	if config.Profile[profile].EncryptSuffix == "" && sectn.EncryptSuffix == "" {
-		sectn.EncryptSuffix = ".pgp"
+
+	if config.Defaults.DecryptRegExp != "" {
+		sectn.DecryptRegExp = config.Defaults.DecryptRegExp
 	}
-	if config.Profile[profile].EncryptSuffix != "" && sectn.EncryptSuffix == "" {
+	if config.Profile[profile].DecryptRegExp != "" {
+		sectn.DecryptRegExp = config.Profile[profile].DecryptRegExp
+	}
+	if sectn.DecryptRegExp == "" {
+		sectn.DecryptRegExp = ".*.gpg$"
+	}
+	if config.Defaults.EncryptRegExp != "" {
+		sectn.EncryptRegExp = config.Defaults.EncryptRegExp
+	}
+	if config.Profile[profile].EncryptRegExp != "" {
+		sectn.EncryptRegExp = config.Profile[profile].EncryptRegExp
+	}
+	if sectn.EncryptRegExp == "" {
+		sectn.EncryptRegExp = ".*"
+	}
+	if config.Defaults.EncryptSuffix != "" {
+		sectn.EncryptSuffix = config.Defaults.EncryptSuffix
+	}
+	if config.Profile[profile].EncryptSuffix != "" {
 		sectn.EncryptSuffix = config.Profile[profile].EncryptSuffix
 	}
-	if config.Profile[profile].DecryptSuffix == "" && sectn.DecryptSuffix == "" {
-		sectn.DecryptSuffix = ".pgp"
+	if sectn.EncryptSuffix == "" {
+		sectn.EncryptSuffix = ".pgp"
 	}
-	if config.Profile[profile].DecryptSuffix != "" && sectn.DecryptSuffix == "" {
-		sectn.DecryptSuffix = config.Profile[profile].DecryptSuffix
-	}
-	if config.Profile[profile].DecryptPassphrase != "" && sectn.DecryptPassphrase == "" {
+
+	if len(config.Profile[profile].DecryptPassphrase) > 0 && len(sectn.DecryptPassphrase) == 0 {
 		sectn.DecryptPassphrase = config.Profile[profile].DecryptPassphrase
 	}
 	if sectn.Decrypt && sectn.PrivateKeyRing == "" {
@@ -326,7 +343,7 @@ func InitialiseConfig(file string) (*Section, error) {
 			return nil, errors.New("if decrypt is set, privatekeyring must also be set")
 		}
 	}
-	if sectn.Decrypt && sectn.DecryptKeyId == "" {
+	if sectn.Decrypt && len(sectn.DecryptKeyId) == 0 {
 		return nil, errors.New("if decrypt is set, decryptkeyid must also be set")
 	}
 	if sectn.Encrypt && sectn.PublicKeyRing == "" {

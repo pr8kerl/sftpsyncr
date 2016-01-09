@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -187,16 +186,18 @@ func (c *PushCommand) Run(args []string) int {
 				lfilesrc := lfilepath
 				mode := lfinfo.Mode()
 
-				if sess.section.Encrypt && !strings.HasSuffix(lfilepath, sess.section.EncryptSuffix) {
-					lfilepath, lfinfo, err = sess.EncryptFile(lfilepath)
-					if err != nil {
-						log.Printf("push error encrypting file : %s, %s\n", lfilepath, err)
-						c.bad = append(c.bad, FileError{path: path, err: err})
-						continue
+				if sess.section.Encrypt {
+					if matched := sess.Ecryptregexp.MatchString(path); matched {
+						lfilepath, lfinfo, err = sess.EncryptFile(lfilepath)
+						if err != nil {
+							log.Printf("push error encrypting file : %s, %s\n", lfilepath, err)
+							c.bad = append(c.bad, FileError{path: path, err: err})
+							continue
+						}
+						lsize = lfinfo.Size()
+						log.Printf("push encrypted file: %s\n", lfilepath)
+						rfile = rfile + sess.section.EncryptSuffix
 					}
-					lsize = lfinfo.Size()
-					log.Printf("push encrypted file: %s\n", lfilepath)
-					rfile = rfile + sess.section.EncryptSuffix
 				}
 
 				log.Printf("push file %s size %d\n", rfile, lsize)

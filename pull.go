@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -221,7 +220,8 @@ func (c *PullCommand) Run(args []string) int {
 				}
 			}
 			if sess.section.Decrypt {
-				if strings.HasSuffix(lfilepath, sess.section.DecryptSuffix) {
+
+				if matched := sess.Dcryptregexp.MatchString(path); matched {
 					newfile, err := sess.DecryptFile(lfilepath)
 					if err != nil {
 						log.Printf("pull error decrypting file : %s\n", err)
