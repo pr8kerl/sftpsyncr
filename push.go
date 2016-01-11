@@ -101,21 +101,19 @@ func (c *PushCommand) Run(args []string) int {
 			lsize = lfinfo.Size()
 			mode := lfinfo.Mode()
 
-			if debug {
-				log.Printf("DEBUG processing local path : %s, %d\n", path, lsize)
-			}
-
 			if rexists {
 				rsize = rfinfo.Size()
 			}
 
 			if lfinfo.IsDir() {
 
+				if debug {
+					log.Printf("DEBUG processing local directory : %s, %d\n", path, lsize)
+				}
 				// prepend the remote dir to the remote file path
 				rfile := filepath.Join(config.Profile[profile].RemoteDir, path)
 
 				if !rexists {
-					log.Printf("push directory %s\n", rfile)
 					sess.MkDirRemote(rfile, mode)
 					if err != nil {
 						log.Printf("push error creating remote directory : %s, %s\n", rfile, err)
@@ -144,6 +142,10 @@ func (c *PushCommand) Run(args []string) int {
 				// enough for a directory
 				continue
 
+			}
+
+			if debug {
+				log.Printf("DEBUG processing local file : %s, %d\n", path, lsize)
 			}
 
 			// ignore if it is on remote
@@ -198,9 +200,10 @@ func (c *PushCommand) Run(args []string) int {
 						log.Printf("push encrypted file: %s\n", lfilepath)
 						rfile = rfile + sess.section.EncryptSuffix
 					}
+				} else {
+					log.Printf("push file %s size %d\n", rfile, lsize)
 				}
 
-				log.Printf("push file %s size %d\n", rfile, lsize)
 				err = sess.Push(lfilepath, rfile, lsize, mode)
 				if err != nil {
 					log.Printf("error pushing file : %s %s\n", path, err)

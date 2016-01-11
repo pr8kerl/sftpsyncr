@@ -346,9 +346,9 @@ func (s *SftpSession) WalkRemote() error {
 		}
 		rstat := walker.Stat()
 
-		if debug {
-			log.Printf("DEBUG remote path: %s,\tsize: %d", walker.Path(), rstat.Size())
-		}
+		//		if debug {
+		//			log.Printf("DEBUG remote path: %s,\tsize: %d", walker.Path(), rstat.Size())
+		//		}
 
 		// only add the file to the list if it matches regexp
 		if matched := s.fileregexp.MatchString(rstat.Name()); matched {
@@ -622,15 +622,12 @@ func (s *SftpSession) CopyFile(src string, dst string) (err error) {
 func (s *SftpSession) TriggerEmail(e error) error {
 
 	if !s.section.EmailSuccess && !s.section.EmailFailure {
-		log.Printf("trigger no email\n")
 		return nil
 	}
 	if e != nil && !s.section.EmailFailure {
-		log.Printf("trigger email on failure\n")
 		return nil
 	}
 	if e == nil && !s.section.EmailSuccess {
-		log.Printf("trigger email on success\n")
 		return nil
 	}
 
@@ -639,8 +636,15 @@ func (s *SftpSession) TriggerEmail(e error) error {
 		log.Printf("no logfile so no email\n")
 		return nil
 	}
-	log.Printf("trigger email coming\n")
+	if e == nil {
+	}
 
+	// only send a success email if files pulled
+	if len(s.GetFiles) > 0 && s.section.EmailSuccess {
+		return nil
+	}
+
+	var status string = "failure"
 	var body []byte
 	body, err := ioutil.ReadFile(s.section.LogFile)
 	if err != nil {
@@ -649,11 +653,10 @@ func (s *SftpSession) TriggerEmail(e error) error {
 
 	m := gomail.NewMessage()
 	var subject string
-	if e != nil {
-		subject = "sftpsyncr " + profile + " failure"
-	} else {
-		subject = "sftpsyncr " + profile + " success"
+	if e == nil {
+		status = "success"
 	}
+	subject = profile + "sftpsyncr " + status
 	m.SetHeader("From", s.section.EmailFrom)
 	m.SetHeader("To", s.section.EmailTo)
 	m.SetHeader("Subject", subject)
@@ -665,6 +668,7 @@ func (s *SftpSession) TriggerEmail(e error) error {
 		log.Printf("email send failed: %s\n", err)
 		return err
 	}
+	log.Printf("%s email sent.\n", status)
 	return nil
 
 }

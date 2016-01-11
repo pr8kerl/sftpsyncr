@@ -35,6 +35,15 @@ archive = false
 ; enable a check for file stability - if file size has changed within stableduration seconds - skip it
 ;stablesize = false
 ;stableduration = 60
+; send an email when files are successfully pulled or pushed
+emailsuccess = true
+; send an email on error
+emailfailure = true
+emailto = billg@ops
+emailfrom = steveb@complaints
+; email server - plain SMTP only
+emailhost = localhost
+emailport = 25
 
 # config file
 [profile "transfername"]

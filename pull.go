@@ -95,12 +95,15 @@ func (c *PullCommand) Run(args []string) int {
 			rmode := rfinfo.Mode()
 			if rfinfo.IsDir() {
 
+				if debug {
+					log.Printf("DEBUG processing remote directory : %s, %d\n", path, rsize)
+				}
+
 				// prepend the remote dir to the remote file path
-				rfilepath := filepath.Join(sess.section.RemoteDir, path)
+				//rfilepath := filepath.Join(sess.section.RemoteDir, path)
 				// prepend the local dir to the local file path
 				lfilepath := filepath.Join(sess.section.LocalDir, path)
 
-				log.Printf("pull directory %s\n", rfilepath)
 				// test for local directory
 				if _, err := os.Stat(lfilepath); err != nil {
 					if os.IsNotExist(err) {
@@ -138,7 +141,7 @@ func (c *PullCommand) Run(args []string) int {
 			}
 
 			if debug {
-				log.Printf("DEBUG processing remote path : %s, %d\n", path, rsize)
+				log.Printf("DEBUG processing remote file : %s, %d\n", path, rsize)
 			}
 
 			if lexists {
