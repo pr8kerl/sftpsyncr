@@ -248,6 +248,7 @@ func (s *SftpSession) initSftpSession() error {
 
 	if s.section.Decrypt {
 
+		s.entityList = make([]*openpgp.Entity, 0, 50)
 		s.Dcryptregexp, err = regexp.Compile(s.section.DecryptRegExp)
 		if err != nil {
 			return err
@@ -266,6 +267,15 @@ func (s *SftpSession) initSftpSession() error {
 
 		dcryptkidlen := len(s.section.DecryptKeyId)
 		dcryptpplen := len(s.section.DecryptPassphrase)
+
+		if debug {
+			krlen := len(s.entityList)
+			log.Printf("keyring count: %d\n", krlen)
+			for i := range s.entityList {
+				kid := s.entityList[i].PrimaryKey.KeyIdShortString()
+				log.Printf("read key string %d : %s\n", i, kid)
+			}
+		}
 		s.decryptEntity = make([]*openpgp.Entity, dcryptkidlen, dcryptkidlen)
 		if dcryptkidlen != dcryptpplen {
 			return fmt.Errorf("you must provide the same number of decryption key ids and decryption key passphrases.\ncheck your config file.\n")

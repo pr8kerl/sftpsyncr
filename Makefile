@@ -21,8 +21,14 @@ sftpsyncr: main.go config.go session.go push.go pull.go
 		GOPATH=$(GOPATH) go build $(LDFLAGS) -o $@ -v $^
 		touch $@
 
-windows:
-	  gox -os="windows"
+win64: main.go config.go session.go push.go pull.go
+    # always format code
+		GOPATH=$(GOPATH) $(GO) fmt $^
+		# vet it
+		GOPATH=$(GOPATH) $(GO) tool vet $^
+    # binary
+		GOOS=windows GOARCH=amd64 GOPATH=$(GOPATH) go build $(LDFLAGS) -o sftpsyncr-win-amd64.exe -v $^
+		touch sftpsyncr-win-amd64.exe
 
 .PHONY: $(DEPS) clean
 
