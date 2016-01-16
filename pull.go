@@ -108,7 +108,7 @@ func (c *PullCommand) Run(args []string) int {
 				if _, err := os.Stat(lfilepath); err != nil {
 					if os.IsNotExist(err) {
 						// dir does not exist
-						err = os.Mkdir(lfilepath, rmode)
+						err = os.MkdirAll(lfilepath, rmode)
 						if err != nil {
 							log.Printf("error creating local directory path : %s, %s\n", lfilepath, err)
 						}
@@ -124,7 +124,7 @@ func (c *PullCommand) Run(args []string) int {
 					if _, err := os.Stat(archivepath); err != nil {
 						if os.IsNotExist(err) {
 							// dir does not exist
-							err = os.Mkdir(archivepath, rmode)
+							err = os.MkdirAll(archivepath, rmode)
 							if err != nil {
 								log.Printf("error creating archive directory path : %s, %s\n", archivepath, err)
 							}
@@ -228,11 +228,11 @@ func (c *PullCommand) Run(args []string) int {
 				if matched := sess.Dcryptregexp.MatchString(path); matched {
 					dcrypted, err = sess.DecryptFile(lfilepath)
 					if err != nil {
-						log.Printf("pull error decrypting file : %s\n", err)
+						log.Printf("error decrypting file : %s %s\n", lfilepath, err)
 						c.bad = append(c.bad, FileError{path: path, err: err})
 						continue
 					}
-					log.Printf("pull decrypted file %s to %s\n", lfilepath, dcrypted)
+					log.Printf("decrypted file %s to %s\n", lfilepath, dcrypted)
 
 					if sess.section.CleanDecrypted {
 						// clean up the original encrypted file
