@@ -581,7 +581,7 @@ func (s *SftpSession) DecryptFile(fname string) (string, error) {
 	//msg, err := openpgp.ReadMessage(lr, openpgp.EntityList(s.decryptEntity), nil, nil)
 	msg, err := openpgp.ReadMessage(lr, s.entityList, nil, nil)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("decrypt read msg error: %s, %s\n", fdecrypted, err.Error())
 	}
 
 	_, err = io.Copy(lw, msg.UnverifiedBody)

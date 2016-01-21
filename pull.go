@@ -108,11 +108,14 @@ func (c *PullCommand) Run(args []string) int {
 				if _, err := os.Stat(lfilepath); err != nil {
 					if os.IsNotExist(err) {
 						// dir does not exist
+						// kludge - ensure perms has 0700 as a minimum. Some sftp servers don't show executable bit on dirs.
+						rmode |= 0700
 						err = os.MkdirAll(lfilepath, rmode)
 						if err != nil {
 							log.Printf("error creating local directory path : %s, %s\n", lfilepath, err)
 						}
 						if debug {
+							log.Printf("directory perm before : %s, %s\n", lfilepath, rmode.String())
 							log.Printf("DEBUG created local dir %s\n", lfilepath)
 						}
 					}
