@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"github.com/ScriptRock/crypto/ssh"
 	"github.com/ScriptRock/crypto/ssh/agent"
-	"golang.org/x/crypto/openpgp"
+	"github.com/pr8kerl/crypto/openpgp"
 	"gopkg.in/gomail.v2"
 	"io"
 	"io/ioutil"
@@ -655,25 +655,32 @@ func (s *SftpSession) TriggerEmail(e error) error {
 	}
 
 	var status string = "failure"
-	var body []byte
-	body, err := ioutil.ReadFile(s.section.LogFile)
-	if err != nil {
-		return err
-	}
+	var body bytes.Buffer
 
 	m := gomail.NewMessage()
 	var subject string
 	if e == nil {
 		status = "success"
+		body.WriteString("\nThe following files were successfully transferred:\n")
+		for f := range s.GetFiles {
+			str := "\t" + s.GetFiles[f].Name() + "\n"
+			body.WriteString(str)
+		}
+	} else {
+		lfile, err := ioutil.ReadFile(s.section.LogFile)
+		if err != nil {
+			return err
+		}
+		body.WriteString(string(lfile))
 	}
 	subject = profile + "sftpsyncr " + status
 	m.SetHeader("From", s.section.EmailFrom)
 	m.SetHeader("To", s.section.EmailTo)
 	m.SetHeader("Subject", subject)
-	m.SetBody("text/plain", string(body))
+	m.SetBody("text/plain", body.String())
 
 	d := gomail.Dialer{Host: s.section.EmailHost, Port: s.section.EmailPort}
-	err = d.DialAndSend(m)
+	err := d.DialAndSend(m)
 	if err != nil {
 		log.Printf("email send failed: %s\n", err)
 		return err
