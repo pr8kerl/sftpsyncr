@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"github.com/ScriptRock/sftp"
 	//"golang.org/x/crypto/ssh"
+	"bufio"
 	"bytes"
 	"github.com/ScriptRock/crypto/ssh"
 	"github.com/ScriptRock/crypto/ssh/agent"
-	"github.com/pr8kerl/crypto/openpgp"
+	"golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/armor"
 	"gopkg.in/gomail.v2"
 	"io"
 	"io/ioutil"
@@ -570,6 +572,13 @@ func (s *SftpSession) DecryptFile(fname string) (string, error) {
 	}
 	defer lr.Close()
 
+	/*
+		slurped, err := ioutil.ReadAll(lr)
+		if err != nil {
+			return "", err
+		}
+	*/
+
 	fdecrypted := strings.TrimSuffix(fname, filepath.Ext(fname))
 
 	lw, err := os.Create(fdecrypted)
@@ -577,11 +586,35 @@ func (s *SftpSession) DecryptFile(fname string) (string, error) {
 		return "", fmt.Errorf("open file error: %s, %s\n", fdecrypted, err.Error())
 	}
 
-	// Decrypt it with the contents of the private key
-	//msg, err := openpgp.ReadMessage(lr, openpgp.EntityList(s.decryptEntity), nil, nil)
-	msg, err := openpgp.ReadMessage(lr, s.entityList, nil, nil)
+	var armorStart = []byte("-----BEGIN ")
+	var msg *openpgp.MessageDetails
+	var dcrypterr error
+	buf := bufio.NewReaderSize(lr, 512)
+	peek, err := buf.Peek(15)
 	if err != nil {
-		return "", fmt.Errorf("decrypt read msg error: %s, %s\n", fdecrypted, err.Error())
+		return "", fmt.Errorf("armor peek: %s, %s\n", fdecrypted, dcrypterr.Error())
+	}
+
+	if bytes.HasPrefix(peek, armorStart) {
+		// armored
+		log.Printf("armored: %s\n", fname)
+		// try reading in an armored block
+		dearmor, err := armor.Decode(buf)
+		if err != nil {
+			log.Printf("not armored: %s\n", fname)
+			return "", fmt.Errorf("armor read msg error: %s, %s\n", fdecrypted, dcrypterr.Error())
+		} else {
+			log.Printf("armored: %s\n", fname)
+			// Decrypt the dearmored message
+			msg, dcrypterr = openpgp.ReadMessage(dearmor.Body, s.entityList, nil, nil)
+		}
+	} else {
+		// Decrypt the binary message
+		msg, dcrypterr = openpgp.ReadMessage(buf, s.entityList, nil, nil)
+	}
+
+	if dcrypterr != nil {
+		return "", fmt.Errorf("decrypt read msg error: %s, %s\n", fdecrypted, dcrypterr.Error())
 	}
 
 	_, err = io.Copy(lw, msg.UnverifiedBody)
