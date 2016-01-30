@@ -10,9 +10,7 @@ import (
 )
 
 type PullCommand struct {
-	Ui   cli.Ui
-	good []string
-	bad  []FileError
+	Ui cli.Ui
 }
 
 func pullCmdFactory() (cli.Command, error) {
@@ -23,17 +21,11 @@ func pullCmdFactory() (cli.Command, error) {
 		ErrorWriter: os.Stderr,
 	}
 
-	// initialise good/bad slices - capacity 128 by default
-	fgood := make([]string, 0, 128)
-	fbad := make([]FileError, 0, 128)
-
 	return &PullCommand{
 		Ui: &cli.ColoredUi{
 			Ui:          ui,
 			OutputColor: cli.UiColorBlue,
 		},
-		good: fgood,
-		bad:  fbad,
 	}, nil
 }
 
@@ -207,7 +199,7 @@ func (c *PullCommand) Run(args []string) int {
 			err = sess.Pull(rfilepath, lfilepath, rsize, rmode)
 			if err != nil {
 				log.Printf("error pulling file : %s %s\n", path, err)
-				c.bad = append(c.bad, FileError{path: path, err: err})
+				sess.Bad = append(sess.Bad, FileError{path: path, err: err})
 				// bail??
 				continue
 			}
@@ -218,7 +210,7 @@ func (c *PullCommand) Run(args []string) int {
 				err = sess.CopyFile(lfilepath, archivepath)
 				if err != nil {
 					log.Printf("error archiving file : %s %s\n", path, err)
-					c.bad = append(c.bad, FileError{path: path, err: err})
+					sess.Bad = append(sess.Bad, FileError{path: path, err: err})
 					continue
 				}
 				if debug {
@@ -232,7 +224,7 @@ func (c *PullCommand) Run(args []string) int {
 					dcrypted, err = sess.DecryptFile(lfilepath)
 					if err != nil {
 						log.Printf("error decrypting file : %s %s\n", lfilepath, err)
-						c.bad = append(c.bad, FileError{path: path, err: err})
+						sess.Bad = append(sess.Bad, FileError{path: path, err: err})
 						continue
 					}
 					log.Printf("decrypted file %s to %s\n", lfilepath, dcrypted)
@@ -242,7 +234,7 @@ func (c *PullCommand) Run(args []string) int {
 						err = os.Remove(lfilepath)
 						if err != nil {
 							log.Printf("clean error removing : %s, %s", lfilepath, err)
-							c.bad = append(c.bad, FileError{path: path, err: err})
+							sess.Bad = append(sess.Bad, FileError{path: path, err: err})
 						}
 						if debug {
 							log.Printf("cleaned encrypted file: %s", lfilepath)
@@ -263,7 +255,7 @@ func (c *PullCommand) Run(args []string) int {
 				efile, _, err := sess.EncryptFile(file)
 				if err != nil {
 					log.Printf("error re-encrypting file : %s, %s\n", file, err)
-					c.bad = append(c.bad, FileError{path: path, err: err})
+					sess.Bad = append(sess.Bad, FileError{path: path, err: err})
 					continue
 				}
 				log.Printf("re-encrypted file: %s\n", efile)
@@ -273,25 +265,25 @@ func (c *PullCommand) Run(args []string) int {
 				err = sess.RemoveRemote(rfilepath)
 				if err != nil {
 					log.Printf("error removing remote file : %s %s\n", path, err)
-					c.bad = append(c.bad, FileError{path: path, err: err})
+					sess.Bad = append(sess.Bad, FileError{path: path, err: err})
 					continue
 				}
 			}
-			c.good = append(c.good, path)
+			sess.Good = append(sess.Good, path)
 		}
 	}
 
 	// summarise results
-	if len(c.good) > 0 {
-		log.Printf("%d files successfully pulled\n", len(c.good))
-		for i := range c.good {
-			log.Printf("pulled: %s\n", c.good[i])
+	if len(sess.Good) > 0 {
+		log.Printf("%d files successfully pulled\n", len(sess.Good))
+		for i := range sess.Good {
+			log.Printf("pulled: %s\n", sess.Good[i])
 		}
 	}
-	if len(c.bad) > 0 {
-		log.Printf("%d files had errors\n", len(c.bad))
-		for i := range c.bad {
-			log.Printf("not pulled: %s %s\n", c.bad[i].path, c.bad[i].err.Error())
+	if len(sess.Bad) > 0 {
+		log.Printf("%d files had errors\n", len(sess.Bad))
+		for i := range sess.Bad {
+			log.Printf("not pulled: %s %s\n", sess.Bad[i].path, sess.Bad[i].err.Error())
 		}
 		return 1
 	}

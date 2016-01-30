@@ -8,7 +8,7 @@ import (
 
 var (
 	profile string
-	version string = "0.1."
+	version string = "sftpsyncr version 0.1."
 	commit  string = "unset"
 )
 

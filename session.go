@@ -32,6 +32,8 @@ type SftpSession struct {
 	LocalFiles    map[string]os.FileInfo
 	RemoteFiles   map[string]os.FileInfo
 	GetFiles      map[string]os.FileInfo
+	Good          []string    // successfully processed files
+	Bad           []FileError // unsuccessfully processed files
 	connection    *ssh.Client
 	client        *sftp.Client
 	section       *Section
@@ -155,6 +157,10 @@ func (s *SftpSession) initSftpSession() error {
 			return err
 		}
 	}
+
+	// initialise good/bad slices - capacity 128 by default
+	s.Good = make([]string, 0, 128)
+	s.Bad = make([]FileError, 0, 128)
 
 	// set ssh auth methods
 	var auths []ssh.AuthMethod
@@ -674,39 +680,44 @@ func (s *SftpSession) TriggerEmail(e error) error {
 		return nil
 	}
 
-	if s.section.LogFile == "" {
-		// do nothing if no log is in use
-		log.Printf("no logfile so no email\n")
-		return nil
-	}
-	if e == nil {
-	}
-
 	// only send a success email if files pulled
-	if len(s.GetFiles) > 0 && s.section.EmailSuccess {
+	if len(s.Good) > 0 && s.section.EmailSuccess {
 		return nil
 	}
 
 	var status string = "failure"
 	var body bytes.Buffer
+	var subject string
+	var goodcount = fmt.Sprintf("%d", len(s.Good))
 
 	m := gomail.NewMessage()
-	var subject string
 	if e == nil {
 		status = "success"
-		body.WriteString("\nThe following files were successfully transferred:\n")
-		for f := range s.GetFiles {
-			str := "\t" + s.GetFiles[f].Name() + "\n"
+		subject = "info: " + profile + "files received: " + goodcount
+	} else {
+		subject = "error: " + profile + "file transfer failure: " + e.Error()
+		if s.section.LogFile != "" {
+			str := "\nPlease check the log file for full errors: " + s.section.LogFile
 			body.WriteString(str)
 		}
-	} else {
-		lfile, err := ioutil.ReadFile(s.section.LogFile)
-		if err != nil {
-			return err
-		}
-		body.WriteString(string(lfile))
 	}
-	subject = profile + "sftpsyncr " + status
+
+	// summarise results
+	if len(s.Good) > 0 {
+		body.WriteString("\nThe following files were successfully transferred:\n")
+		for f := range s.Good {
+			str := "\t" + s.Good[f] + "\n"
+			body.WriteString(str)
+		}
+	}
+	if len(s.Bad) > 0 {
+		body.WriteString("\nThe following files had errors:\n")
+		for f := range s.Bad {
+			str := "\t" + s.Bad[f].path + " \t" + s.Bad[f].err.Error() + "\n"
+			body.WriteString(str)
+		}
+	}
+
 	m.SetHeader("From", s.section.EmailFrom)
 	m.SetHeader("To", s.section.EmailTo)
 	m.SetHeader("Subject", subject)
