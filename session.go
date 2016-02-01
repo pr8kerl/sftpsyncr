@@ -681,7 +681,11 @@ func (s *SftpSession) TriggerEmail(e error) error {
 	}
 
 	// only send a success email if files pulled
-	if len(s.Good) > 0 && s.section.EmailSuccess {
+	if len(s.Good) == 0 && s.section.EmailSuccess {
+		return nil
+	}
+	// only send a failure email if bad files pulled
+	if len(s.Bad) == 0 && s.section.EmailFailure {
 		return nil
 	}
 
@@ -695,6 +699,7 @@ func (s *SftpSession) TriggerEmail(e error) error {
 		status = "success"
 		subject = "info: " + profile + "files received: " + goodcount
 	} else {
+		status = "errors"
 		subject = "error: " + profile + "file transfer failure: " + e.Error()
 		if s.section.LogFile != "" {
 			str := "\nPlease check the log file for full errors: " + s.section.LogFile
@@ -704,6 +709,7 @@ func (s *SftpSession) TriggerEmail(e error) error {
 
 	// summarise results
 	if len(s.Good) > 0 {
+		status = "success"
 		body.WriteString("\nThe following files were successfully transferred:\n")
 		for f := range s.Good {
 			str := "\t" + s.Good[f] + "\n"
@@ -711,6 +717,7 @@ func (s *SftpSession) TriggerEmail(e error) error {
 		}
 	}
 	if len(s.Bad) > 0 {
+		status = "errors"
 		body.WriteString("\nThe following files had errors:\n")
 		for f := range s.Bad {
 			str := "\t" + s.Bad[f].path + " \t" + s.Bad[f].err.Error() + "\n"
