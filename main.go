@@ -7,9 +7,10 @@ import (
 )
 
 var (
-	profile string
-	version string = "sftpsyncr version 0.1."
-	commit  string = "unset"
+	profile  string
+	version  string = "sftpsyncr version 0.1."
+	commit   string = "unset"
+	xfermode string = "unset"
 )
 
 func main() {

@@ -670,22 +670,10 @@ func (s *SftpSession) CopyFile(src string, dst string) (err error) {
 // called from main to allow session to check whether an email is worthy or not
 func (s *SftpSession) TriggerEmail(e error) error {
 
+	if len(s.Good) == 0 && len(s.Bad) == 0 {
+		return nil
+	}
 	if !s.section.EmailSuccess && !s.section.EmailFailure {
-		return nil
-	}
-	if e != nil && !s.section.EmailFailure {
-		return nil
-	}
-	if e == nil && !s.section.EmailSuccess {
-		return nil
-	}
-
-	// only send a success email if files pulled
-	if len(s.Good) == 0 && s.section.EmailSuccess {
-		return nil
-	}
-	// only send a failure email if bad files pulled
-	if len(s.Bad) == 0 && s.section.EmailFailure {
 		return nil
 	}
 
@@ -693,36 +681,36 @@ func (s *SftpSession) TriggerEmail(e error) error {
 	var body bytes.Buffer
 	var subject string
 	var goodcount = fmt.Sprintf("%d", len(s.Good))
+	var badcount = fmt.Sprintf("%d", len(s.Bad))
+
+	if debug {
+		log.Printf("debug email, good: %s, bad: %s\n", goodcount, badcount)
+	}
 
 	m := gomail.NewMessage()
-	if e == nil {
-		status = "success"
-		subject = "info: " + profile + "files received: " + goodcount
-	} else {
-		status = "errors"
-		subject = "error: " + profile + "file transfer failure: " + e.Error()
-		if s.section.LogFile != "" {
-			str := "\nPlease check the log file for full errors: " + s.section.LogFile
-			body.WriteString(str)
-		}
-	}
 
 	// summarise results
 	if len(s.Good) > 0 {
 		status = "success"
-		body.WriteString("\nThe following files were successfully transferred:\n")
+		subject = "info: " + profile + " files received: " + goodcount
+		str := "\nThe following files were successfully " + xfermode + "ed:\n\n"
+		body.WriteString(str)
 		for f := range s.Good {
-			str := "\t" + s.Good[f] + "\n"
-			body.WriteString(str)
+			s := "\t" + s.Good[f] + "\n"
+			body.WriteString(s)
 		}
+		body.WriteString("\n")
 	}
 	if len(s.Bad) > 0 {
-		status = "errors"
-		body.WriteString("\nThe following files had errors:\n")
+		status = "failure"
+		subject = "error: " + profile + " file errors: " + badcount
+		body.WriteString("\nThe following files had errors:\n\n")
 		for f := range s.Bad {
 			str := "\t" + s.Bad[f].path + " \t" + s.Bad[f].err.Error() + "\n"
 			body.WriteString(str)
 		}
+		str := "\n\nPlease check the log file for full errors: " + s.section.LogFile
+		body.WriteString(str)
 	}
 
 	m.SetHeader("From", s.section.EmailFrom)

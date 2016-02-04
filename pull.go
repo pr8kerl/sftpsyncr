@@ -34,6 +34,7 @@ func (c *PullCommand) Run(args []string) int {
 	// flags
 	var cfgfile string
 	var err error
+	xfermode = "pull"
 	cmdFlags := flag.NewFlagSet("pull", flag.ContinueOnError)
 	cmdFlags.StringVar(&profile, "profile", "default", "sftp session profile to use")
 	cmdFlags.StringVar(&cfgfile, "config", "config.ini", "config file in git config ini format")
