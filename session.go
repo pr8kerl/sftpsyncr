@@ -692,8 +692,8 @@ func (s *SftpSession) TriggerEmail(e error) error {
 	// summarise results
 	if len(s.Good) > 0 {
 		status = "success"
-		subject = "info: " + profile + " files received: " + goodcount
-		str := "\nThe following files were successfully " + xfermode + "ed:\n\n"
+		subject = "info: " + profile + " files " + xferverb + ": " + goodcount
+		str := "\nThe following files were successfully " + xferverb + ":\n\n"
 		body.WriteString(str)
 		for f := range s.Good {
 			s := "\t" + s.Good[f] + "\n"

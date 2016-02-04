@@ -10,7 +10,7 @@ var (
 	profile  string
 	version  string = "sftpsyncr version 0.1."
 	commit   string = "unset"
-	xfermode string = "unset"
+	xferverb string = "unset"
 )
 
 func main() {
