@@ -7,10 +7,12 @@ import (
 	//"golang.org/x/crypto/ssh"
 	"bufio"
 	"bytes"
+	"crypto"
 	"github.com/ScriptRock/crypto/ssh"
 	"github.com/ScriptRock/crypto/ssh/agent"
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/armor"
+	"golang.org/x/crypto/openpgp/packet"
 	"gopkg.in/gomail.v2"
 	"io"
 	"io/ioutil"
@@ -87,13 +89,13 @@ func (s *SftpSession) Connect() error {
 		if _, err := conn.Write(connstr); err != nil {
 			return errors.New("failed to write connect to http proxy at " + paddr + ": " + err.Error())
 		}
-		buf := make([]byte, 100)
-		respok := []byte(" 200 ")
-		if _, err := io.ReadFull(conn, buf); err != nil {
+		status, err := bufio.NewReader(conn).ReadString('\n')
+		if err != nil {
+			log.Printf("response: \n%s\n", status)
 			return errors.New("failed to read response from http proxy at " + paddr + ": " + err.Error())
 		}
-		if !bytes.Contains(buf, respok) {
-			return errors.New("error response from http proxy at " + paddr + ": " + string(buf))
+		if !strings.Contains(status, " 200 ") {
+			return errors.New("error response from http proxy at " + paddr + ": " + status)
 		}
 
 		// CONNECT www.google.com.au:443 HTTP/1.1
@@ -364,9 +366,9 @@ func (s *SftpSession) WalkRemote() error {
 		}
 		rstat := walker.Stat()
 
-		//		if debug {
-		//			log.Printf("DEBUG remote path: %s,\tsize: %d", walker.Path(), rstat.Size())
-		//		}
+		if debug {
+			log.Printf("DEBUG remote path: %s, %s,\tsize: %d", walker.Path(), rstat.Name(), rstat.Size())
+		}
 
 		// only add the file to the list if it matches regexp
 		if matched := s.fileregexp.MatchString(rstat.Name()); matched {
@@ -542,7 +544,8 @@ func (s *SftpSession) EncryptFile(fname string) (string, os.FileInfo, error) {
 	}
 	defer lw.Close()
 
-	w, err := openpgp.Encrypt(lw, []*openpgp.Entity{s.encryptEntity}, nil, nil, nil)
+	enccfg := packet.Config{DefaultHash: crypto.SHA512}
+	w, err := openpgp.Encrypt(lw, []*openpgp.Entity{s.encryptEntity}, nil, nil, &enccfg)
 	if err != nil {
 		return "", nil, err
 	}

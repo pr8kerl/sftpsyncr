@@ -35,49 +35,47 @@ archive = false
 ; enable a check for file stability - if file size has changed within stableduration seconds - skip it
 ;stablesize = false
 ;stableduration = 60
-; send an email when files are successfully pulled or pushed
-emailsuccess = true
-; send an email on error
-emailfailure = true
-emailto = billg@ops
-emailfrom = steveb@complaints
-; email server - plain SMTP only
-emailhost = localhost
-emailport = 25
 
 # config file
-[profile "transfername"]
-server = localhost
+[profile "example"]
+server = 192.168.0.1
 username = luser
-; set a password or a key or don't set either and use an ssh-agent
-;password = letmein
-key = /home/luser/.ssh/id_rsa
-;port = 22
+password = password
+port = 22
 ;matchregexp = .*
-localdir = /tmp/local
+localdir = /media/sf_scratch/sync/example
 remotedir = remote
-;logfile = /tmp/sftpsyncr.log
-;lockdir = /tmp/sftpsyncr.lock
+logfile = /media/sf_scratch/sync/sftpsyncr-example.log
+lockdir = /media/sf_scratch/sync/sftpsyncr-example.lock
 ; enable the use of cbc ciphers
 insecureciphers = true
 ;debug = false
 ;proxyserver = 192.168.0.100
 ;proxyport = 8080
-;publickeyring = "~/.gnupg/pubring.gpg"
-;privatekeyring = "~/.gnupg/secring.gpg"
-decrypt = true
-decryptkeyid = 3D0A8209
-decryptpassphrase = passphrase1
-decryptkeyid = 36682CF
-decryptpassphrase = passphrase2
-decryptsuffix = ".gpg"
+publickeyring = "/home/luser/.gnupg/pubring.gpg"
+privatekeyring = "/home/luser/.gnupg/secring.gpg"
 ;encrypt = false
-;encryptkeyid = 3D0A8209
+;encryptkeyid = 9A85A5B8
 ;encryptsuffix = ".gpg"
 debug = true
 clean = false
 archive = true
-archivedir = /tmp/archive
-stablesize = true
+archivedir = /media/sf_scratch/sync/archive
+stablesize = false
 stableduration = 120
-
+emailfailure = false
+emailsuccess = false
+emailto = luser@example.com
+emailfrom = luser@example.com
+emailhost = localhost
+emailport = 25
+;
+decrypt = true
+decryptregexp = ".gpg|.PGP|.pgp|.asc"
+; decryption keys
+; first key
+decryptkeyid = EC4F3B5C
+decryptpassphrase = passphrase
+; second key
+decryptkeyid = 368CB885
+decryptpassphrase = passphrase
